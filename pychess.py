@@ -1,14 +1,10 @@
 from collections import namedtuple
-import string
+from chessenums import Pieces, Colors
 
 
 # Board dimensions
 DIM = 8
 DIM_ZERO = 7
-
-# Color
-WHITE = True
-BLACK = False
 
 # Directions for straight movement
 DIAGONAL = [(1, 1), (1, -1), (-1, -1), (-1, 1)]
@@ -42,7 +38,7 @@ class Piece:
         self.text = text
     
     def __str__(self):
-        color = "w" if self.color == WHITE else "b"
+        color = "w" if self.color == Colors.White else "b"
         return color + self.text
 
     __repr__ = __str__
@@ -102,13 +98,13 @@ class Board:
 
     # Place pieces on the board at the beginning of the game.
     def place_pieces(self):
-        for color in [WHITE, BLACK]:
-            row = 1 if color == WHITE else DIM_ZERO - 1
+        for color in [Colors.White, Colors.Black]:
+            row = 1 if color == Colors.White else DIM_ZERO - 1
             for i in range(DIM):
                 self.board[row][i].piece = Pawn(color)
 
             relative_place = {Rook: 0, Knight: 1, Bishop: 2}
-            row = 0 if color == WHITE else DIM_ZERO
+            row = 0 if color == Colors.White else DIM_ZERO
             for key_piece in relative_place:
                 self.board[row][0 + relative_place[key_piece]].piece = key_piece(color)
                 self.board[row][DIM_ZERO - relative_place[key_piece]].piece = key_piece(color)
@@ -161,12 +157,12 @@ class Board:
     # @param color: color of pawn
     # @return: set of legal moves the pawn can make
     def get_moves_of_pawn(self, coords, color):
-        vertical_direction = 1 if color == WHITE else -1
+        vertical_direction = 1 if color == Colors.White else -1
         moves = set()
         
         # Forward movement
         steps = 1
-        if (coords.r == 1 and color == WHITE) or (coords.r == DIM_ZERO - 1 and color == BLACK):
+        if (coords.r == 1 and color == Colors.White) or (coords.r == DIM_ZERO - 1 and color == Colors.Black):
            steps = 2
         for i in range(1, steps + 1):
             new_square = Coords((coords.r + i * vertical_direction), coords.c)
@@ -266,7 +262,29 @@ class Board:
             self.__perform_move(origin, target)
         else:
             raise ValueError("Illegal move: ", origin, target)
-        
+
+
+    # @return: Board with color and piece-type tuples or (None, None)
+    def get_state(self):
+        # No NoneType reference in types module
+        NoneType = type(None)
+        pieces_dict = {
+            Pawn: Pieces.Pawn,
+            Rook: Pieces.Rook,
+            Knight: Pieces.Knight,
+            Bishop: Pieces.Bishop,
+            Queen: Pieces.Queen,
+            King: Pieces.King,
+            NoneType: None
+            }
+        board_state = [[] for _ in range(DIM)]
+        for i, row in enumerate(self.board):
+            for j, square in enumerate(row):
+                color = square.piece.color if square.piece else None
+                piece_type = pieces_dict[type(square.piece)]
+                board_state[i].append(((color, piece_type)))
+        return board_state
+
     def __str__(self):
         cols = "abcdefgh"
         rows = "".join([str(n) for n in range(1, DIM+1)])
@@ -285,12 +303,13 @@ class Board:
 if __name__=="__main__":
     board = Board()
     print(board)
-    p = Pawn(WHITE)
+    
+    p = Pawn(Colors.White)
     board.move_piece(Coords(1,3), Coords(3,3))
     board.move_piece(Coords(0,1), Coords(2,2))
     # board.move_piece(Coords(3,1), Coords(2,1))
     print(board)
     print(board.knight_movement((0, 1), (2,2)))
-    print(sorted(board.get_moves_in_straight_lines(Coords(3,3), WHITE, DIAGONAL + HORIZONTAL_VERTICAL)))
+    print(sorted(board.get_moves_in_straight_lines(Coords(3,3), Colors.White, DIAGONAL + HORIZONTAL_VERTICAL)))
     # Board.on_board(Coords(2, -1))
-    print(board.get_moves_of_pawn(Coords(5,3), WHITE))
+    print(board.get_moves_of_pawn(Coords(5,3), Colors.White))
