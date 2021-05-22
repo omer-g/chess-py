@@ -25,6 +25,47 @@ COLOR_TO_PNG = {
         }
 
 
+# class Label(QtWidgets.QWidget):
+#     def __init__(self, parent=None):
+#         QtWidgets.QWidget.__init__(self, parent=parent)
+#         self.p = QtGui.QPixmap()
+#         self.setPixmap(QtGui.QPixmap("pieces/car.jpg"))
+
+#     def setPixmap(self, p):
+#         self.p = p
+#         self.update()
+
+#     def paintEvent(self, event):
+#         if not self.p.isNull():
+#             painter = QtGui.QPainter(self)
+#             painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform)
+#             painter.drawPixmap(self.rect(), self.p)
+
+# class ImageLabel(QtWidgets.QWidget):
+#     def __init__(self, color, kind, parent):
+#         QtWidgets.QWidget.__init__(self, parent=parent)
+#         self.p = QtGui.QPixmap()
+
+#         self.kind = kind
+#         self.color = color
+#         if color and kind:
+#             pix_map = QtGui.QPixmap(f"pieces/{COLOR_TO_PNG[color]}{PIECE_TO_PNG[kind]}")
+#             self.setPixmap(pix_map.scaled(int(parent.width()*0.5),
+#                     int(parent.width()*0.5), QtCore.Qt.KeepAspectRatio))
+
+
+#     def setPixmap(self, p):
+#         self.p = p
+#         self.update()
+
+#     def paintEvent(self, event):
+#         if not self.p.isNull():
+#             painter = QtGui.QPainter(self)
+#             painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform)
+#             painter.drawPixmap(self.rect(), self.p)
+
+
+
 class BoardPiece(QtWidgets.QLabel):
     ''' A piece in the GUI '''
     def __init__(self, parent, color, kind):
@@ -47,7 +88,7 @@ class BoardSquare(QtWidgets.QFrame):
         
         self.piece = None
 
-        self.square_layout = QtWidgets.QHBoxLayout()
+        self.square_layout = QtWidgets.QVBoxLayout()
         self.square_layout.setAlignment(QtCore.Qt.AlignCenter)
         self.setLayout(self.square_layout)
         self.setStyleSheet(f"background-color: {square_color};")

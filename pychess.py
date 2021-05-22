@@ -86,8 +86,12 @@ class Square:
 
 class Board:
     """A simple board"""
+    player_color = { True: Colors.White, False: Colors.Black }
 
-    def __init__(self):
+
+    def __init__(self, white_turn = True):
+        self.white_turn = white_turn
+
         board = [[] for i in range(DIM)]
         for i, _ in enumerate(board):
             board[i] = tuple([Square((j + i) % 2  == 0) for j in range(DIM)])
@@ -228,6 +232,9 @@ class Board:
         if not origin_piece:
             raise ValueError("No piece in ", origin)
         
+        if origin_piece.color != Board.player_color[self.white_turn]:
+            raise ValueError("This is not your piece")
+
         # Check target doesn't have a piece with same color as origin.
         target_piece = self.board[target.r][target.c].piece
         if target_piece and target_piece.color == origin_piece.color:
@@ -260,6 +267,7 @@ class Board:
 
         if move_flag:
             self.__perform_move(origin, target)
+            self.white_turn = not self.white_turn
             return True
         else:
             raise ValueError("Illegal move: ", origin, target)
