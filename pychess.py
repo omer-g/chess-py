@@ -89,7 +89,7 @@ class Board:
 
     def __init__(self):
         board = [[] for i in range(DIM)]
-        for i, row in enumerate(board):
+        for i, _ in enumerate(board):
             board[i] = tuple([Square((j + i) % 2  == 0) for j in range(DIM)])
 
         # Create empty board
@@ -108,8 +108,8 @@ class Board:
             for key_piece in relative_place:
                 self.board[row][0 + relative_place[key_piece]].piece = key_piece(color)
                 self.board[row][DIM_ZERO - relative_place[key_piece]].piece = key_piece(color)
-            self.board[row][3].piece = Queen(color)
-            self.board[row][4].piece = King(color)
+            self.board[row][3].piece = King(color)
+            self.board[row][4].piece = Queen(color)
  
     def get_square(self, coords):
         return self.board[coords.r][coords.c]
@@ -215,7 +215,7 @@ class Board:
         origin_square = self.get_square(origin)
         target_square = self.get_square(target)
 
-        self.board[target.r][target.c].piece = piece
+        target_square.piece = piece
         origin_square.piece = None
 
     def move_piece(self, origin, target):
@@ -260,6 +260,7 @@ class Board:
 
         if move_flag:
             self.__perform_move(origin, target)
+            return True
         else:
             raise ValueError("Illegal move: ", origin, target)
 
@@ -295,7 +296,7 @@ class Board:
         
         for row, row_num in zip(self.board[::-1], rows[::-1]):
             output_str += row_num + " "
-            row_str = "|" + "|".join([str(square) for square in row]) + "|\n"
+            row_str = "|" + "|".join([str(square) for square in row[::-1]]) + "|\n"
             output_str += row_str
         return output_str
 
