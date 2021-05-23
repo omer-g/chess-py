@@ -112,8 +112,8 @@ class Board:
             for key_piece in relative_place:
                 self.board[row][0 + relative_place[key_piece]].piece = key_piece(color)
                 self.board[row][DIM_ZERO - relative_place[key_piece]].piece = key_piece(color)
-            self.board[row][3].piece = King(color)
-            self.board[row][4].piece = Queen(color)
+            self.board[row][4].piece = King(color)
+            self.board[row][3].piece = Queen(color)
  
     def get_square(self, coords):
         return self.board[coords.r][coords.c]
@@ -125,7 +125,7 @@ class Board:
     # @param attacker_color: The color of the attack piece
     # @return: True if there is a piece that can be eaten on the square.
     def eatable(self, coords, attacker_color):
-        piece = self.board[coords.r][coords.c].piece
+        piece = self.get_piece(coords)
         if not piece or piece.color == attacker_color:
             return False
         return True
@@ -146,7 +146,7 @@ class Board:
                 if not on_board(new_square):
                     break         
                 # Check if not empty
-                piece_in_new_square = self.board[new_square.r][new_square.c].piece
+                piece_in_new_square = self.get_piece(new_square)
                 if piece_in_new_square:
                     # If there is a piece that can be eaten add square to legal squares
                     if self.eatable(new_square, color):
@@ -170,7 +170,7 @@ class Board:
            steps = 2
         for i in range(1, steps + 1):
             new_square = Coords((coords.r + i * vertical_direction), coords.c)
-            if not on_board(new_square) or self.board[new_square.r][new_square.c].piece:
+            if not on_board(new_square) or self.get_piece(new_square):
                 break
             moves.add(new_square)
 
@@ -191,10 +191,30 @@ class Board:
             new_square = Coords(origin[0] + direction[0], origin[1] + direction[1])
             if not on_board(new_square):
                 continue
-            target_piece = self.board[new_square.r][new_square.c].piece
+            target_piece = self.get_piece(new_square)
             if not target_piece or target_piece.color != color:
                 # TODO here add a check if target square is threatened by other color
                 moves.add(new_square)
+
+        # Check castling
+        # TODO rewrite reduce numbers etc.
+        if self.get_piece(origin).can_castle == True:
+            k_dirs, r_positions, r_deltas = (-1, 1), (0, DIM_ZERO), (3, -2)
+            for k_dir, r_position, r_delta in zip(k_dirs, r_positions, r_deltas):
+                castle_allowed = True
+                for i in range(1,3):
+                    new_square = Coords(origin[0], origin[1] + i * k_dir)
+                    target_piece = self.get_piece(new_square)
+                    if target_piece:
+                        castle_allowed = False
+                # Check square next to rook
+                next_to_rook = Coords(origin[0], r_position + k_dir * (-1))
+                if self.get_piece(next_to_rook):
+                    castle_allowed = False
+                if castle_allowed:
+                    king_castle_target = Coords(origin[0], origin[1] + 2 * k_dir)
+                    moves.add(king_castle_target)
+        return moves
 
     # @param a, b: coordinates (can be regular tuples as well)
     # @return: tuple of difference
@@ -209,6 +229,7 @@ class Board:
         delta =  self.sub_coords(target, origin)
         return set(map(abs, delta)) == {1, 2}
 
+    # @param origin, target: coordinates of a legal move
     def __perform_move(self, origin, target):
         """Move any piece anywhere."""
 
@@ -222,13 +243,25 @@ class Board:
         target_square.piece = piece
         origin_square.piece = None
 
+        if type(piece) == King:
+            if self.sub_coords(target, origin)[1] == 2:
+                rook_coords = Coords(origin[0], DIM_ZERO)
+                rook_target = Coords(origin[0], DIM_ZERO - 2)
+                self.__perform_move(rook_coords, rook_target)
+            if self.sub_coords(target, origin)[1] == -2:
+                rook_coords = Coords(origin[0], 0)
+                rook_target = Coords(origin[0], 3)
+                self.__perform_move(rook_coords, rook_target)
+            print(rook_coords, rook_target)
+
+
     def move_piece(self, origin, target):
         if not on_board(origin) or not on_board(target):
             raise ValueError("Not on board")        
         if origin == target:
             raise ValueError("Same square")
 
-        origin_piece = self.board[origin.r][origin.c].piece
+        origin_piece = self.get_piece(origin)
         if not origin_piece:
             raise ValueError("No piece in ", origin)
         
@@ -236,7 +269,7 @@ class Board:
             raise ValueError("This is not your piece")
 
         # Check target doesn't have a piece with same color as origin.
-        target_piece = self.board[target.r][target.c].piece
+        target_piece = self.get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
             raise ValueError("Same color")
 
@@ -244,29 +277,36 @@ class Board:
         # Pawn
         if isinstance(origin_piece, Pawn):    
             if target in self.get_moves_of_pawn(origin, origin_piece.color):
+                self.__perform_move(origin, target)
                 move_flag = True
         # Knight
         if isinstance(origin_piece, Knight) and self.knight_movement(origin, target):
+                self.__perform_move(origin, target)
                 move_flag = True
         # Bishop
         if isinstance(origin_piece, Bishop):
             if target in self.get_moves_in_straight_lines(origin, origin_piece.color, DIAGONAL):
+                self.__perform_move(origin, target)
                 move_flag = True
         # Rook
         if isinstance(origin_piece, Rook):
             if target in self.get_moves_in_straight_lines(origin, origin_piece.color, HORIZONTAL_VERTICAL):
+                self.__perform_move(origin, target)
+                origin_piece.can_castle == False                
                 move_flag = True
         # Queen
         if isinstance(origin_piece, Queen):
             if target in self.get_moves_in_straight_lines(origin, origin_piece.color, DIAGONAL + HORIZONTAL_VERTICAL):
+                self.__perform_move(origin, target)
                 move_flag = True
         # King
         if isinstance(origin_piece, King):
             if target in self.get_moves_of_king(origin, origin_piece.color):
+                self.__perform_move(origin, target)
+                origin_piece.can_castle = False
                 move_flag = True
 
         if move_flag:
-            self.__perform_move(origin, target)
             self.white_turn = not self.white_turn
             return True
         else:
@@ -304,7 +344,7 @@ class Board:
         
         for row, row_num in zip(self.board[::-1], rows[::-1]):
             output_str += row_num + " "
-            row_str = "|" + "|".join([str(square) for square in row[::-1]]) + "|\n"
+            row_str = "|" + "|".join([str(square) for square in row]) + "|\n"
             output_str += row_str
         return output_str
 
@@ -314,8 +354,7 @@ if __name__=="__main__":
     print(board)
     
     p = Pawn(Colors.White)
-    board.move_piece(Coords(1,3), Coords(3,3))
-    board.move_piece(Coords(0,1), Coords(2,2))
+    board.move_piece(Coords(1,4), Coords(3,4))
     # board.move_piece(Coords(3,1), Coords(2,1))
     print(board)
     print(board.knight_movement((0, 1), (2,2)))

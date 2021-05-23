@@ -118,7 +118,7 @@ class BoardWindow(QtWidgets.QWidget):
     def gui_to_board_coords(self, coords):
         row, col = coords
         if self.white_perspective:
-            return pychess.Coords(7 - row, 7 - col)
+            return pychess.Coords(7 - row, col)
         else:
             return pychess.Coords(row, col)
     
@@ -178,10 +178,12 @@ class BoardWindow(QtWidgets.QWidget):
         board_coords = [(r, c) for r in range(8) for c in range(8)]
         for r, c in board_coords:
             color, kind = board_state[r][c]
+            gui_r, gui_c = self.board_to_gui_coords((r, c))
+            square = self.board_squares[gui_r][gui_c]
             if color and kind:
-                gui_r, gui_c = self.board_to_gui_coords((r, c))
-                square = self.board_squares[gui_r][gui_c]
                 square.place_piece(color, kind)
+            elif (color, kind) == (None, None):
+                square.remove_piece()
 
     # @param: a square that has been double clicked to lift a piece
     def lift_piece(self, square):
@@ -190,13 +192,11 @@ class BoardWindow(QtWidgets.QWidget):
 
     # @param origin: origin square
     # @param target: target square
-    def perform_move(self, origin, target):
-        piece = origin.piece
-        target.place_piece(piece.color, piece.kind)
-        self.origin_square.remove_piece()
-        self.piece_lifted = False
-        piece = None
-        origin = None
+    # def perform_move(self, origin, target):
+    #     piece = origin.piece
+    #     target.place_piece(piece.color, piece.kind)
+    #     self.origin_square.remove_piece()
+    #     piece = None
 
     # @param square: a square that was doublec clicked    
     def handleDoubleClick(self, square):
@@ -207,7 +207,10 @@ class BoardWindow(QtWidgets.QWidget):
                 origin = self.square_to_board_coords(self.origin_square)
                 target = self.square_to_board_coords(square)
                 self.board.move_piece(origin, target)
-                self.perform_move(self.origin_square, square)
+                self.set_pieces(self.board.get_state())
+                # self.perform_move(self.origin_square, square)
+                self.piece_lifted = False
+
             except Exception as e:
                 print(e)
                 self.piece_lifted = False

@@ -2,7 +2,7 @@ from enum import Enum, auto
 
 
 class Pieces(Enum):
-    Pawn = auto(),
+    Pawn = 1,
     Rook = auto(),
     Knight = auto(),
     Bishop = auto(),
@@ -11,5 +11,5 @@ class Pieces(Enum):
 
 
 class Colors(Enum):
-    Black = auto(),
+    Black = 1,
     White = auto()
