@@ -6,9 +6,10 @@ from chessenums import Pieces, Colors
 DIM = 8
 DIM_ZERO = 7
 
-# Directions for straight movement
+# Directions of movements
 DIAGONAL = [(1, 1), (1, -1), (-1, -1), (-1, 1)]
 HORIZONTAL_VERTICAL = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+KNIGHT = [(1, 2), (-1, 2), (-1, -2), (1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
 
 # Named tuple of coordinates
 Coords = namedtuple("Coords", "r, c")
@@ -88,7 +89,6 @@ class Board:
     """A simple board"""
     player_color = { True: Colors.White, False: Colors.Black }
 
-
     def __init__(self, white_turn = True):
         self.white_turn = white_turn
 
@@ -99,6 +99,12 @@ class Board:
         # Create empty board
         self.board = tuple([tuple([square for square in row]) for row in board])
         self.place_pieces()
+
+    # @param a, b: coordinates (can be regular tuples as well)
+    # @return: tuple of difference
+    @staticmethod
+    def sub_coords(a, b):
+        return (a[0] - b[0], a[1] - b[1])
 
     # Place pieces on the board at the beginning of the game.
     def place_pieces(self):
@@ -184,6 +190,11 @@ class Board:
         # TODO add en passant later
         return moves
 
+    # def is_threatened(self, coords, color):
+    #     for row in self.board:
+    #         for sq in row:
+    #             if 
+
     def get_moves_of_king(self, origin, color):
         directions = HORIZONTAL_VERTICAL + DIAGONAL
         moves = set()
@@ -216,20 +227,40 @@ class Board:
                     moves.add(king_castle_target)
         return moves
 
-    # @param a, b: coordinates (can be regular tuples as well)
-    # @return: tuple of difference
-    @staticmethod
-    def sub_coords(a, b):
-        return (a[0] - b[0], a[1] - b[1])
 
-    # @param delta: the difference between origin and target
-    # @return: True if the delta between squares fits the movement of a knight.
-    def knight_movement(self, origin, target):
-        # Get the difference between the target and the origin squares.
-        delta =  self.sub_coords(target, origin)
-        return set(map(abs, delta)) == {1, 2}
 
-    # @param origin, target: coordinates of a legal move
+
+    # @param origin: starting coordinates of knight
+    # @param color: color of knight
+    def get_knight_moves(self, origin, color):
+        moves = []
+        for dr, dc in KNIGHT:
+            target = Coords(origin[0] + dr, origin[1] + dc)
+            if on_board(target):
+                if not self.get_piece(target) or self.get_piece(target).color != color:
+                    moves.append(target)
+        return moves
+
+    def get_moves(self, coords):
+        if not self.get_piece(coords):
+            raise ValueError("No piece to get moves of")
+        piece = self.get_piece(coords)
+        moves = []
+        if isinstance(piece, Pawn):
+            moves = self.get_moves_of_pawn(coords, piece.color)
+        if isinstance(piece, Knight):
+            moves = self.get_knight_moves(coords, piece.color)
+        if isinstance(piece, Rook):
+            moves = self.get_moves_in_straight_lines(coords, piece.color, HORIZONTAL_VERTICAL)
+        if isinstance(piece, Bishop):
+            moves = self.get_moves_in_straight_lines(coords, piece.color, DIAGONAL)
+        if isinstance(piece, Queen):
+            moves = self.get_moves_in_straight_lines(coords, piece.color, DIAGONAL + HORIZONTAL_VERTICAL)
+        if isinstance(piece, King):
+            moves = self.get_moves_of_king(coords, piece.color)
+        return moves
+
+    # @param origin,, target: coordinates of a legal move
     def __perform_move(self, origin, target):
         """Move any piece anywhere."""
 
@@ -252,8 +283,8 @@ class Board:
                 rook_coords = Coords(origin[0], 0)
                 rook_target = Coords(origin[0], 3)
                 self.__perform_move(rook_coords, rook_target)
-            print(rook_coords, rook_target)
-
+                self.get_piece(rook_target).can_castle = False
+            piece.can_castle = False
 
     def move_piece(self, origin, target):
         if not on_board(origin) or not on_board(target):
@@ -273,45 +304,12 @@ class Board:
         if target_piece and target_piece.color == origin_piece.color:
             raise ValueError("Same color")
 
-        move_flag = False
-        # Pawn
-        if isinstance(origin_piece, Pawn):    
-            if target in self.get_moves_of_pawn(origin, origin_piece.color):
-                self.__perform_move(origin, target)
-                move_flag = True
-        # Knight
-        if isinstance(origin_piece, Knight) and self.knight_movement(origin, target):
-                self.__perform_move(origin, target)
-                move_flag = True
-        # Bishop
-        if isinstance(origin_piece, Bishop):
-            if target in self.get_moves_in_straight_lines(origin, origin_piece.color, DIAGONAL):
-                self.__perform_move(origin, target)
-                move_flag = True
-        # Rook
-        if isinstance(origin_piece, Rook):
-            if target in self.get_moves_in_straight_lines(origin, origin_piece.color, HORIZONTAL_VERTICAL):
-                self.__perform_move(origin, target)
-                origin_piece.can_castle == False                
-                move_flag = True
-        # Queen
-        if isinstance(origin_piece, Queen):
-            if target in self.get_moves_in_straight_lines(origin, origin_piece.color, DIAGONAL + HORIZONTAL_VERTICAL):
-                self.__perform_move(origin, target)
-                move_flag = True
-        # King
-        if isinstance(origin_piece, King):
-            if target in self.get_moves_of_king(origin, origin_piece.color):
-                self.__perform_move(origin, target)
-                origin_piece.can_castle = False
-                move_flag = True
-
-        if move_flag:
+        if target in self.get_moves(origin):
+            self.__perform_move(origin, target)
             self.white_turn = not self.white_turn
             return True
         else:
             raise ValueError("Illegal move: ", origin, target)
-
 
     # @return: Board with color and piece-type tuples or (None, None)
     def get_state(self):
@@ -355,9 +353,6 @@ if __name__=="__main__":
     
     p = Pawn(Colors.White)
     board.move_piece(Coords(1,4), Coords(3,4))
-    # board.move_piece(Coords(3,1), Coords(2,1))
     print(board)
-    print(board.knight_movement((0, 1), (2,2)))
     print(sorted(board.get_moves_in_straight_lines(Coords(3,3), Colors.White, DIAGONAL + HORIZONTAL_VERTICAL)))
-    # Board.on_board(Coords(2, -1))
     print(board.get_moves_of_pawn(Coords(5,3), Colors.White))
