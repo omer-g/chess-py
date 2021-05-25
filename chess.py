@@ -1,5 +1,5 @@
 from definitions import *
-
+from functools import partial
 
 class Board:
     curr_player_color = { True: Colors.White, False: Colors.Black }
@@ -58,7 +58,7 @@ class Board:
     # @param color: color of piece
     # @param directions_list: a list of direction tuples [(-1,1),...] based on piece.
     # @return: set of legal moves the piece can make and squares threatened by it
-    def get_moves_in_straight_lines(self, coords, color, directions_list):
+    def get_straight_line_moves(self, directions_list, coords, color):
         moves = set()           # Possible moves
         threatens = set()       # Squares threatened by piece
         for direction in directions_list:
@@ -83,7 +83,7 @@ class Board:
     # @param coords: coordinates of pawn
     # @param color: color of pawn
     # @return: set of legal moves the pawn can make and the squares threatened by it
-    def get_moves_of_pawn(self, coords, color):
+    def get_pawn_moves(self, coords, color):
         vertical_direction = 1 if color == Colors.White else -1
         moves = set()
         
@@ -115,8 +115,8 @@ class Board:
 
         return moves, threatens
 
-    def get_moves_of_king(self, origin, color):
-        directions = HORIZONTAL_VERTICAL + DIAGONAL
+    def get_king_moves(self, origin, color):
+        directions = ALL_DIRECTIONS
         moves, threatens = set(), set()
         for direction in directions:
             new_coords = Coords(origin[0] + direction[0], origin[1] + direction[1])
@@ -167,24 +167,18 @@ class Board:
     #   moves: potential moves
     #   threatens: squares threatened by piece (including same color, empty squares)
     def update_moves(self, coords):
+        piece_function = {
+            Pawn: self.get_pawn_moves,
+            Knight: self.get_knight_moves,
+            Rook: partial(self.get_straight_line_moves, HORIZONTAL_VERTICAL),
+            Bishop: partial(self.get_straight_line_moves, DIAGONAL),
+            Queen: partial(self.get_straight_line_moves, ALL_DIRECTIONS),
+            King: self.get_king_moves
+        }
         if not self.get_piece(coords):
             raise ValueError("No piece to get moves of")
-        piece = self.get_piece(coords)
-        if isinstance(piece, Pawn):
-            piece.moves, piece.threatens = self.get_moves_of_pawn(coords, piece.color)
-        if isinstance(piece, Knight):
-            piece.moves, piece.threatens = self.get_knight_moves(coords, piece.color)
-        if isinstance(piece, Rook):
-            piece.moves, piece.threatens = self.get_moves_in_straight_lines(coords,
-                    piece.color, HORIZONTAL_VERTICAL)
-        if isinstance(piece, Bishop):
-            piece.moves, piece.threatens = self.get_moves_in_straight_lines(coords,
-                    piece.color, DIAGONAL)
-        if isinstance(piece, Queen):
-            piece.moves, piece.threatens = self.get_moves_in_straight_lines(coords,
-                    piece.color, DIAGONAL + HORIZONTAL_VERTICAL)
-        if isinstance(piece, King):
-            piece.moves, piece.threatens = self.get_moves_of_king(coords, piece.color)
+        piece = self.get_piece(coords)        
+        piece.moves, piece.threatens = piece_function[type(piece)](coords, piece.color)
 
     def coords_under_threat(self, player_color: Colors, coords: Coords):
         enemy_color = player_color.other_color()
