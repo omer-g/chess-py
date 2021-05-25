@@ -111,14 +111,7 @@ class Board:
                     moves.add(new_square)
                 threatens.add(new_square)
         
-                # # TODO  en passant - simpler to save moves and check last move
-                # en_passant_lines = {Colors.White: 4, Colors.Black: 3}
-                # adjacent_piece = self.get_piece(Coords(coords.r, coords.c + horizontal_direction))
-                # if en_passant_lines[color] == coords.r:
-                #     if isinstance(adjacent_piece, Pawn) and \
-                #             adjacent_piece.color == color.other_color():
-                #         threatens.add(adjacent_piece)
-                #         moves.add(new_square)
+                # TODO  write en passant as a separate function
 
         return moves, threatens
 
@@ -282,6 +275,7 @@ class Board:
             raise ValueError("Illegal move: same color")
 
         self.update_moves(origin)
+        # TODO here check for en passant
         if target in origin_piece.moves:
             self.__perform_move(origin, target)            
             self.white_turn = not self.white_turn

@@ -1,4 +1,4 @@
-from pychess import *
+from chess import *
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
@@ -16,12 +16,12 @@ PIECE_TO_PNG = {
     Pieces.Bishop: "bishop.png",
     Pieces.Queen: "queen.png",
     Pieces.King: "king.png"
-    }
+}
 
 COLOR_TO_PNG = {
         Colors.Black: "b_",
         Colors.White: "w_"
-        }
+}
 
 
 class BoardPiece(QtWidgets.QLabel):
@@ -148,14 +148,6 @@ class BoardWindow(QtWidgets.QWidget):
         self.origin_square = square
         self.piece_lifted = True
 
-    # @param origin: origin square
-    # @param target: target square
-    # def perform_move(self, origin, target):
-    #     piece = origin.piece
-    #     target.place_piece(piece.color, piece.kind)
-    #     self.origin_square.remove_piece()
-    #     piece = None
-
     # @param square: a square that was doublec clicked    
     def handleDoubleClick(self, square):
         if square.piece and not self.piece_lifted:
@@ -166,7 +158,6 @@ class BoardWindow(QtWidgets.QWidget):
                 target = self.square_to_board_coords(square)
                 self.board.move_piece(origin, target)
                 self.set_pieces(self.board.get_state())
-                # self.perform_move(self.origin_square, square)
                 self.piece_lifted = False
 
             except Exception as e:
