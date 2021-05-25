@@ -1,16 +1,13 @@
+from pychess import *
+
 from PyQt5 import QtWidgets
-import PyQt5.QtWidgets as qtw
-import PyQt5.QtGui as qtg
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from chessenums import Pieces, Colors
+from PyQt5 import QtGui
+from PyQt5 import QtCore
 
 
 DIM = 700
-SQUARE_SIZE = 70
-PIECE_SIZE = 60
 DARK_COLOR = "grey"
-BRIGHT_COLOR = "white"
+BRIGHT_COLOR = "rgb(255, 253, 208)"
 
 PIECE_TO_PNG = {
     Pieces.Pawn: "pawn.png",
@@ -27,74 +24,158 @@ COLOR_TO_PNG = {
         }
 
 
-# @param board_position: bottom left corner tuple (x, y)
-# @param r, c: row and col  
-class GuiSquare():
-    def __init__(self, parent_window, board_position, r, c):
+class BoardPiece(QtWidgets.QLabel):
+    ''' A piece in the GUI '''
+    def __init__(self, parent, color, kind):
+        super().__init__()
+        self.kind = kind
+        self.color = color
+        if color and kind:
+            pix_map = QtGui.QPixmap(f"pieces/{COLOR_TO_PNG[color]}{PIECE_TO_PNG[kind]}")
+            self.setPixmap(pix_map.scaled(int(parent.width()*0.5),
+                    int(parent.width()*0.5), QtCore.Qt.KeepAspectRatio))
+
+
+class BoardSquare(QtWidgets.QFrame):
+    ''' A square in the GUI '''
+    def __init__(self, board_window, parent_widget, square_color, gui_coords):
+        super().__init__(parent_widget)
+        self.board_window = board_window
+        self.board_widget = parent_widget
+        self.gui_coords = gui_coords
+        
         self.piece = None
-        self.x = board_position[0] + c * SQUARE_SIZE
-        self.y = board_position[1] - r * SQUARE_SIZE
-        square = QFrame(parent_window)
-        square.setObjectName(u"frame" + f"{r}-{c}")
-        square.setGeometry(QRect(self.x, self.y, SQUARE_SIZE, SQUARE_SIZE))
-        if (r + c) % 2 == 0:
-            square.setStyleSheet(f"background-color: {DARK_COLOR};")
-        else:
-            square.setStyleSheet(f"background-color: {BRIGHT_COLOR};")
+
+        self.square_layout = QtWidgets.QVBoxLayout()
+        self.square_layout.setAlignment(QtCore.Qt.AlignCenter)
+        self.setLayout(self.square_layout)
+        self.setStyleSheet(f"background-color: {square_color};")
+        self.setLineWidth(0)
+
+    def place_piece(self, color, kind):
+        self.remove_piece()
+        piece = BoardPiece(self, color, kind)
+        self.square_layout.addWidget(piece)
+        self.piece = piece
 
     def remove_piece(self):
         if self.piece:
-            self.piece.hide()
+            self.square_layout.removeWidget(self.piece)
             self.piece = None
-
-    # @param parent_window: pass main window
-    # @param piece_tuple: tuple of the enums Colors and Pieces
-    def set_piece(self, parent_window, piece_tuple):
-        if piece_tuple:
-            # Erase previous piece
-            self.remove_piece()
-            color, kind = piece_tuple
-            self.piece = QtWidgets.QLabel(parent_window)
-            self.piece.setPixmap(qtg.QPixmap(f"pieces/{COLOR_TO_PNG[color]}{PIECE_TO_PNG[kind]}"))
-            self.piece.setGeometry(self.x + 5 , self.y + 5, PIECE_SIZE, PIECE_SIZE)
-            self.piece.show()
-                    
-
-class BoardWindow(qtw.QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setLayout(qtw.QGridLayout())
-        self.resize(DIM,DIM)        
-        self.setStyleSheet("BoardWindow {background-color: rgb(0,139,139);}") 
-        self.setWindowFlag(Qt.FramelessWindowHint)
-        self.board_position = (DIM // 2 - SQUARE_SIZE * 4, DIM // 2 + SQUARE_SIZE * 3)
         
-        # Draw board
-        self.board = [[] for _ in range(0, 8)]
-        for r, row in enumerate(self.board):
-            for c in range(0, 8):
-                row.append(GuiSquare(self, self.board_position, r, c))
+    def mouseDoubleClickEvent(self, a0: QtGui.QMouseEvent) -> None:
+        self.board_window.handleDoubleClick(self)
+        return super().mousePressEvent(a0)
+
+
+class BoardWindow(QtWidgets.QWidget):
+    ''' The game window '''
+
+    # @param coords: a tuple of gui board coordinates
+    # @return: coordinates on logic board as Coords.
+    def gui_to_board_coords(self, coords):
+        row, col = coords
+        if self.white_perspective:
+            return Coords(7 - row, col)
+        else:
+            return Coords(row, col)
+    
+    # @param square: a square in the gui
+    # @return: coordinates on logic board as Coords.
+    def square_to_board_coords(self, square):
+        return self.gui_to_board_coords(square.gui_coords)
+
+    # @param coords: a tuple of logic board coordinates
+    # @return: coordinates on gui board.
+    def board_to_gui_coords(self, coords):
+        row, col = coords
+        return tuple(self.gui_to_board_coords((row, col)))
+
+    # @param white_perspective: direction of board
+    def __init__(self, white_perspective = True):
+        super().__init__()
+
+        # Marks if a piece is lifted and if so saves its square.
+        self.piece_lifted = False
+        self.origin_square = None
+        self.white_perspective = white_perspective
+
+
+        window_layout = QtWidgets.QGridLayout()
+        self.setLayout(window_layout)
+        self.resize(DIM,DIM)        
+        self.setStyleSheet("BoardWindow {background-color: rgb(0,139,139);}")
+        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+        
+        self.board = Board()
+        self.board_widget = QtWidgets.QFrame(self)
+        self.board_squares = [[] for i in range(8)]
+
+        positions = [(i, j) for i in range(8) for j in range(8)]
+
+        board_layout = QtWidgets.QGridLayout()
+        board_layout.setSpacing(0)
+        self.board_widget.setLayout(board_layout)
+        # TODO change this?
+        for i, j in positions:
+            r, c = self.gui_to_board_coords((i, j))
+
+            # Square color based on logic board coordinates
+            square_color = DARK_COLOR if (r + c) % 2 == 1 else BRIGHT_COLOR
+            square = BoardSquare(self, self.board_widget, square_color, (i, j))
+            self.board_squares[i].append(square)
+            board_layout.addWidget(square, i, j)
+            
+        window_layout.addWidget(self.board_widget)
+        self.set_pieces(self.board.get_state())
         self.show()
 
-    def clean_board(self):
-        for row in self.board:
-            for square in row:
+    # Sets pieces in GUI according to logic board.
+    # @param board_state: a representation of the current logic board state
+    def set_pieces(self, board_state):
+        board_coords = [(r, c) for r in range(8) for c in range(8)]
+        for r, c in board_coords:
+            color, kind = board_state[r][c]
+            gui_r, gui_c = self.board_to_gui_coords((r, c))
+            square = self.board_squares[gui_r][gui_c]
+            if color and kind:
+                square.place_piece(color, kind)
+            elif (color, kind) == (None, None):
                 square.remove_piece()
 
-    # This will accept a board state and set pieces accordingly.
-    def set_pieces(self, board_state):
-        self.clean_board()
-        for board_row, board_state_row in zip(self.board, board_state):
-            for square, piece_tuple in zip(board_row, board_state_row):
-                square.set_piece(self, piece_tuple)
+    # @param: a square that has been double clicked to lift a piece
+    def lift_piece(self, square):
+        self.origin_square = square
+        self.piece_lifted = True
+
+    # @param origin: origin square
+    # @param target: target square
+    # def perform_move(self, origin, target):
+    #     piece = origin.piece
+    #     target.place_piece(piece.color, piece.kind)
+    #     self.origin_square.remove_piece()
+    #     piece = None
+
+    # @param square: a square that was doublec clicked    
+    def handleDoubleClick(self, square):
+        if square.piece and not self.piece_lifted:
+            self.lift_piece(square)
+        elif self.piece_lifted:
+            try:
+                origin = self.square_to_board_coords(self.origin_square)
+                target = self.square_to_board_coords(square)
+                self.board.move_piece(origin, target)
+                self.set_pieces(self.board.get_state())
+                # self.perform_move(self.origin_square, square)
+                self.piece_lifted = False
+
+            except Exception as e:
+                print(e)
+                self.piece_lifted = False
+                self.origin_square = None
 
     
 if __name__=="__main__":
-    app = qtw.QApplication([])
+    app = QtWidgets.QApplication([])
     mw = BoardWindow()
-    state = [[] for _ in range(8)]
-    for row in state:
-        for _ in range(8):
-            row.append((Colors.Black, Pieces.Queen))
-    mw.set_pieces(state)
     app.exec_()
