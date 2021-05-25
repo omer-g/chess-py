@@ -6,6 +6,7 @@ class Board:
 
     def __init__(self, white_turn = True):
         self.white_turn = white_turn
+        self.en_passant_pawn = None
 
         board = [[] for i in range(DIM)]
         for r in range(len(board)):
@@ -37,10 +38,10 @@ class Board:
             self.board[row][3].piece = Queen(color)
  
     def get_square(self, coords):
-        return self.board[coords.r][coords.c]
+        return self.board[coords[0]][coords[1]]
     
     def get_piece(self, coords):
-        return self.board[coords.r][coords.c].piece        
+        return self.board[coords[0]][coords[1]].piece        
 
     # @param coords: The target coordinate where eating could occur
     # @param attacker_color: The color of the attack piece
@@ -85,23 +86,21 @@ class Board:
     # @return: set of legal moves the pawn can make and the squares threatened by it
     def get_pawn_moves(self, coords, color):
         vertical_direction = 1 if color == Colors.White else -1
-        moves = set()
+        moves, threatens = set(), set()
         
         # Forward movement
         steps = 1
-        if (coords.r == 1 and color == Colors.White) or \
-            (coords.r == DIM_ZERO - 1 and color == Colors.Black):
+        if ((coords.r == 1 and color == Colors.White) or
+            (coords.r == DIM_ZERO - 1 and color == Colors.Black)):
            steps = 2
         for i in range(1, steps + 1):
             new_square = Coords((coords.r + i * vertical_direction), coords.c)
             if not on_board(new_square) or self.get_piece(new_square):
                 break
             moves.add(new_square)
+        
 
-        # Check eating
-        threatens = set()
-
-
+        # Check pawn attack moves (except en passant)
         horizontal_directions = [-1, 1]
         for horizontal_direction in horizontal_directions:
             new_square = Coords((coords.r + 1 * vertical_direction),
@@ -199,6 +198,20 @@ class Board:
                     return Coords(r, c)
         raise ValueError(f"Found no {king_color} king")
 
+    def check_en_passant(self, origin, target):
+        origin_piece = self.get_piece(origin)
+        target_piece = self.get_piece(target)
+        forward = 1 if origin_piece.color == Colors.White else -1
+        if self.en_passant_pawn:
+            if (    origin[0] == self.en_passant_pawn[0] and
+                    origin[0] + forward == target[0] and
+                    target[1] == self.en_passant_pawn[1] and
+                    abs(target[1] - origin[1]) == 1 and
+                    isinstance(origin_piece, Pawn) and
+                    not target_piece):
+                return True
+        return False
+
     def __move_no_checks(self, origin, target):  
         origin_square = self.get_square(origin)
         target_square = self.get_square(target)
@@ -206,7 +219,8 @@ class Board:
         origin_square.piece = None
 
     # @param origin, target: coordinates of a legal move
-    def __perform_move(self, origin, target):
+    # @param passant_victim: coordinates of en passant victim
+    def __perform_move(self, origin, target, passant_coords = None):
         # Keep tuple records of (square, piece) to revert an illegal move
         revert = list()
 
@@ -214,17 +228,27 @@ class Board:
         target_piece = self.get_piece(target)
         revert.append((target, target_piece))
         revert.append((origin, origin_piece))
+        # Check if king is threatened, before a move is done
         self.__move_no_checks(origin, target)
-
-        # Set of coordinates king passes to check threats
+        # Other than castling scenario, check king safety only after move
         check_threatened = set([self.find_king_coords(origin_piece.color)])
 
+        if passant_coords:
+            passant_victim_square = self.get_square(passant_coords)
+            revert.append((passant_coords, passant_victim_square.piece))
+            passant_victim_square.piece = None
+
+
+        # Set of coordinates king passes to check threats
         castled = False
         if type(origin_piece) == King:
             check_threatened.add(target)
             horizontal_steps = self.sub_coords(target, origin)[1]
             if abs(horizontal_steps) == 2:
+                # Don't allow king to castle under threat 
+                check_threatened.add(origin)
                 rook_coords, rook_target = None, None
+                # TODO refactor this
                 if horizontal_steps == 2:
                     check_threatened.add(Coords(origin[0], origin[1] + 1))
                     rook_coords = Coords(origin[0], DIM_ZERO)
@@ -250,6 +274,12 @@ class Board:
                         piece.can_castle = True
                 raise ValueError("Illegal move: King is under threat")
 
+    def pawn_two_squares(self, origin, target):
+        if isinstance(self.get_piece(target), Pawn):
+            if abs(origin[0] - target[0]) == 2:
+                return target
+        return None
+
     def move_piece(self, origin, target):
         if not on_board(origin) or not on_board(target):
             raise ValueError("Not on board")        
@@ -267,16 +297,24 @@ class Board:
         target_piece = self.get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
             raise ValueError("Illegal move: same color")
-
         self.update_moves(origin)
-        # TODO here check for en passant
-        if target in origin_piece.moves:
-            self.__perform_move(origin, target)            
+
+
+        do_en_passant = self.check_en_passant(origin, target)
+
+        if target in origin_piece.moves or do_en_passant:
+            if do_en_passant:
+                self.__perform_move(origin, target, self.en_passant_pawn)
+            else:
+                self.__perform_move(origin, target)
+
+            # Mark if en passant may be possible next move
+            self.en_passant_pawn = self.pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
             other_color = origin_piece.color.other_color()
             other_king = self.find_king_coords(other_color)
             if self.coords_under_threat(other_color, other_king):
-                print("Check!")
+                print(f"The {other_color} king is under check.")
                 # TODO add checkmate check
             return True
         else:
@@ -297,7 +335,7 @@ class Board:
             }
         board_state = [[] for _ in range(DIM)]
         for i, row in enumerate(self.board):
-            for j, square in enumerate(row):
+            for square in row:
                 color = square.piece.color if square.piece else None
                 piece_type = pieces_dict[type(square.piece)]
                 board_state[i].append(((color, piece_type)))

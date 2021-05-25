@@ -28,6 +28,9 @@ class Colors(Enum):
 
     def other_color(self):
         return Colors.Black if self == Colors.White else Colors.White
+    
+    def __str__(self):
+        return "black" if self == Colors.Black else "white"
 
 
 # Named tuple of coordinates
