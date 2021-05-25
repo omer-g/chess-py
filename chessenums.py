@@ -13,3 +13,6 @@ class Pieces(Enum):
 class Colors(Enum):
     Black = 1,
     White = auto()
+
+    def other_color(self):
+        return Colors.Black if self == Colors.White else Colors.White
