@@ -1,19 +1,22 @@
 from definitions import *
+from exceptions import *
 from functools import partial
+
 
 class Board:
     curr_player_color = { True: Colors.White, False: Colors.Black }
 
-    def __init__(self, white_turn = True):
+    # @param white_turn: Whose turn is it
+    # @param state: a table of (Colors, Piece) tuples
+    def __init__(self, white_turn = True, state = None):
         self.white_turn = white_turn
         self.en_passant_pawn = None
 
+        # Create empty board
         board = [[] for i in range(DIM)]
         for r in range(len(board)):
             board[r] = tuple([Square(Coords(r, c)) for c in range(DIM)])
-
-        # Create empty board
-        self.board = tuple([tuple([square for square in row]) for row in board])
+        self.board = tuple([tuple([sq for sq in row]) for row in board])
         self.place_pieces()
 
     # @param a, b: coordinates - regular tuples as well
@@ -29,11 +32,11 @@ class Board:
             for i in range(DIM):
                 self.board[row][i].piece = Pawn(color)
 
-            relative_place = {Rook: 0, Knight: 1, Bishop: 2}
+            place = {Rook: 0, Knight: 1, Bishop: 2}
             row = 0 if color == Colors.White else DIM_ZERO
-            for key_piece in relative_place:
-                self.board[row][0 + relative_place[key_piece]].piece = key_piece(color)
-                self.board[row][DIM_ZERO - relative_place[key_piece]].piece = key_piece(color)
+            for piece in place:
+                self.board[row][0 + place[piece]].piece = piece(color)
+                self.board[row][DIM_ZERO - place[piece]].piece = piece(color)
             self.board[row][4].piece = King(color)
             self.board[row][3].piece = Queen(color)
  
@@ -55,37 +58,38 @@ class Board:
     def in_range(self, num):
         return num >= 0 and num < DIM
 
-    # @param coords: coordinates of a piece that moves in straight lines (Q, B, R)
+    # @param coords: coordinates of straight lines piece (Q, B, R)
     # @param color: color of piece
-    # @param directions_list: a list of direction tuples [(-1,1),...] based on piece.
-    # @return: set of legal moves the piece can make and squares threatened by it
-    def get_straight_line_moves(self, directions_list, coords, color):
+    # @param directions: list of direction tuples [(-1,1),...] based on piece
+    # @return: set of legal moves and all squares threatened by piece
+    def get_straight_line_moves(self, directions, coords, color):
         moves = set()           # Possible moves
         threatens = set()       # Squares threatened by piece
-        for direction in directions_list:
+        for direction in directions:
             for i in range(1, DIM):
-                new_square = Coords(coords[0] + direction[0] * i, coords[1] + direction[1] * i)               
-                # Check out of range
-                if not on_board(new_square):
+                square = Coords(coords[0] + direction[0] * i,
+                                    coords[1] + direction[1] * i)               
+                if not on_board(square):
                     break         
                 # Check if not empty
-                piece_in_new_square = self.get_piece(new_square)
-                if piece_in_new_square:
-                    # If there is a piece that can be eaten add square to legal squares
-                    if self.eatable(new_square, color):
-                        moves.add(new_square)
-                    threatens.add(new_square)
+                piece = self.get_piece(square)
+                if piece:
+                    # Check if there's piece that can be eaten
+                    if self.eatable(square, color):
+                        moves.add(square)
+                    threatens.add(square)
                     break
                 else:
-                    moves.add(new_square)
-                    threatens.add(new_square)
+                    moves.add(square)
+                    threatens.add(square)
         return moves, threatens
 
     # @param coords: coordinates of pawn
     # @param color: color of pawn
-    # @return: set of legal moves the pawn can make and the squares threatened by it
+    # @return: set of legal moves pawn can make, and squares threatened by it
+    #          does not include en passant
     def get_pawn_moves(self, coords, color):
-        vertical_direction = 1 if color == Colors.White else -1
+        vertical = 1 if color == Colors.White else -1
         moves, threatens = set(), set()
         
         # Forward movement
@@ -94,31 +98,28 @@ class Board:
             (coords.r == DIM_ZERO - 1 and color == Colors.Black)):
            steps = 2
         for i in range(1, steps + 1):
-            new_square = Coords((coords.r + i * vertical_direction), coords.c)
+            new_square = Coords((coords.r + i * vertical), coords.c)
             if not on_board(new_square) or self.get_piece(new_square):
                 break
             moves.add(new_square)
         
 
-        # Check pawn attack moves (except en passant)
+        # Pawn attack moves (except en passant)
         horizontal_directions = [-1, 1]
         for horizontal_direction in horizontal_directions:
-            new_square = Coords((coords.r + 1 * vertical_direction),
+            new_square = Coords((coords.r + 1 * vertical),
                     (coords.c + horizontal_direction))
             if on_board(new_square):
                 if self.eatable(new_square, color):
                     moves.add(new_square)
                 threatens.add(new_square)
-        
-                # TODO  write en passant as a separate function
-
         return moves, threatens
 
     def get_king_moves(self, origin, color):
         directions = ALL_DIRECTIONS
         moves, threatens = set(), set()
-        for direction in directions:
-            new_coords = Coords(origin[0] + direction[0], origin[1] + direction[1])
+        for dir in directions:
+            new_coords = Coords(origin[0] + dir[0], origin[1] + dir[1])
             if not on_board(new_coords):
                 continue
             threatens.add(new_coords)
@@ -126,7 +127,8 @@ class Board:
             if not target_piece or target_piece.color != color:
                 moves.add(new_coords)
         
-        # Check castling
+        # Check if castling physically could be possible.
+        # Does not check if king is threatened.
         # TODO refactor
         if self.get_piece(origin).can_castle == True:
             k_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
@@ -142,8 +144,8 @@ class Board:
                 if self.get_piece(next_to_rook):
                     castle_allowed = False
                 if castle_allowed:
-                    king_castle_target = Coords(origin[0], origin[1] + 2 * k_dir)
-                    moves.add(king_castle_target)
+                    king_target = Coords(origin[0], origin[1] + 2 * k_dir)
+                    moves.add(king_target)
         return moves, threatens
 
     # @param origin: starting coordinates of knight
@@ -156,17 +158,20 @@ class Board:
             target = Coords(origin[0] + dr, origin[1] + dc)
             if on_board(target):
                 threatens.add(target)
-                if not self.get_piece(target) or self.get_piece(target).color != color:
+                if (
+                    not self.get_piece(target) or
+                    self.get_piece(target).color != color
+                ):
                     moves.add(target)
         return moves, threatens
 
     # @param coords: coordinates of a square with a piece on it
-    # @returns: None
     # Updates following sets in a piece:
-    #   moves: potential moves
-    #   threatens: squares threatened by piece (including same color, empty squares)
+    #   moves: set of potential moves
+    #   threatens: set of squares threatened (includes same color or empty)
     def update_moves(self, coords):
-        piece_function = {
+        # Dictionary of functions that return the two sets
+        piece_functions = {
             Pawn: self.get_pawn_moves,
             Knight: self.get_knight_moves,
             Rook: partial(self.get_straight_line_moves, HORIZONTAL_VERTICAL),
@@ -174,10 +179,9 @@ class Board:
             Queen: partial(self.get_straight_line_moves, ALL_DIRECTIONS),
             King: self.get_king_moves
         }
-        if not self.get_piece(coords):
-            raise ValueError("No piece to get moves of")
-        piece = self.get_piece(coords)        
-        piece.moves, piece.threatens = piece_function[type(piece)](coords, piece.color)
+        piece = self.get_piece(coords)
+        piece_function = piece_functions[type(piece)]
+        piece.moves, piece.threatens = piece_function(coords, piece.color)
 
     def coords_under_threat(self, player_color: Colors, coords: Coords):
         enemy_color = player_color.other_color()
@@ -196,19 +200,21 @@ class Board:
                 piece = self.get_piece(Coords(r, c))
                 if isinstance(piece, King) and piece.color == king_color:
                     return Coords(r, c)
-        raise ValueError(f"Found no {king_color} king")
+        raise NoKingError(f"No {king_color} king on board - terminate")
 
     def check_en_passant(self, origin, target):
         origin_piece = self.get_piece(origin)
         target_piece = self.get_piece(target)
         forward = 1 if origin_piece.color == Colors.White else -1
         if self.en_passant_pawn:
-            if (    origin[0] == self.en_passant_pawn[0] and
-                    origin[0] + forward == target[0] and
-                    target[1] == self.en_passant_pawn[1] and
-                    abs(target[1] - origin[1]) == 1 and
-                    isinstance(origin_piece, Pawn) and
-                    not target_piece):
+            if (
+                origin[0] == self.en_passant_pawn[0] and
+                origin[0] + forward == target[0] and
+                target[1] == self.en_passant_pawn[1] and
+                abs(target[1] - origin[1]) == 1 and
+                isinstance(origin_piece, Pawn) and
+                not target_piece
+            ):
                 return True
         return False
 
@@ -270,9 +276,12 @@ class Board:
                 for coords, piece in revert:
                     square = self.get_square(coords)
                     square.piece = piece
-                    if castled and (isinstance(piece, King) or isinstance(piece, Rook)):
+                    if (
+                        castled and
+                        (isinstance(piece, King) or isinstance(piece, Rook))
+                    ):
                         piece.can_castle = True
-                raise ValueError("Illegal move: King is under threat")
+                raise KingThreatenedException("King under threat")
 
     def pawn_two_squares(self, origin, target):
         if isinstance(self.get_piece(target), Pawn):
@@ -280,23 +289,32 @@ class Board:
                 return target
         return None
 
-    def move_piece(self, origin, target):
+    def promotion(self, target: Coords) -> bool:
+        piece = self.get_piece(target)
+        if isinstance(piece, Pawn):
+            if (
+                piece.color == Colors.White and target.r == DIM_ZERO or
+                piece.color == Colors.Black and target.r == 0
+            ):
+                return True
+        return False            
+
+    def move_piece(self, origin, target) -> MoveReturn:
         if not on_board(origin) or not on_board(target):
-            raise ValueError("Not on board")        
+            raise NotOnBoardException("Coordinates not on board")
         if origin == target:
-            raise ValueError("Same square")
+            raise SameSquareException("Same square")
 
         origin_piece = self.get_piece(origin)
         if not origin_piece:
-            raise ValueError(f"There is no piece in {origin}")
+            raise NoPieceException(f"No piece in {origin}")
         
         if origin_piece.color != Board.curr_player_color[self.white_turn]:
-            raise ValueError("It is not your turn")
+            raise WrongTurnException("Not your turn")
 
-        # Check target doesn't have a piece with same color as origin.
         target_piece = self.get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
-            raise ValueError("Illegal move: same color")
+            raise SameColorException("Same color")
         self.update_moves(origin)
 
 
@@ -307,20 +325,25 @@ class Board:
                 self.__perform_move(origin, target, self.en_passant_pawn)
             else:
                 self.__perform_move(origin, target)
-
-            # Mark if en passant may be possible next move
+            # Mark if a pawn double-traveled and en passant may be possible
             self.en_passant_pawn = self.pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
             other_color = origin_piece.color.other_color()
             other_king = self.find_king_coords(other_color)
+           
+           
+            promotion_flag = self.promotion(target)
+            game_status = BoardStatus.Normal
             if self.coords_under_threat(other_color, other_king):
-                print(f"The {other_color} king is under check.")
+                print("Check")
+                game_status = BoardStatus.Check
                 # TODO add checkmate check
-            return True
+            # TODO stalemate
+            return MoveReturn(status=game_status, promotion=promotion_flag)
         else:
-            raise ValueError(f"Illegal move: {origin, target}")
+            raise IllegalMoveException(f"Illegal move: {origin, target}")
 
-    # @return: Board with color and piece-type tuples or (None, None)
+    # @return: Board with (color, piece-type) tuples or (None, None)
     def get_state(self):
         # No NoneType reference in types module
         NoneType = type(None)

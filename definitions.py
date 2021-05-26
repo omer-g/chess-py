@@ -12,6 +12,14 @@ HORIZONTAL_VERTICAL = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 ALL_DIRECTIONS = DIAGONAL + HORIZONTAL_VERTICAL
 KNIGHT = [(1, 2), (-1, 2), (-1, -2), (1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
 
+class BoardStatus(Enum):
+    Normal = auto(),
+    Check = auto(),
+    Checkmate = auto(),
+    Stalemate = auto()
+
+MoveReturn = namedtuple("MoveReturn", "status, promotion")
+
 
 class Pieces(Enum):
     Pawn = 1,
