@@ -11,11 +11,13 @@ class Board:
     def __init__(self, white_turn = True, state = None):
         self.white_turn = white_turn
         self.en_passant_pawn = None
+        self.promotion_flag = False
 
         # Create empty board
         board = [[] for i in range(DIM)]
         for r in range(len(board)):
             board[r] = tuple([Square(Coords(r, c)) for c in range(DIM)])
+
         self.board = tuple([tuple([sq for sq in row]) for row in board])
         self.place_pieces()
 
@@ -289,7 +291,7 @@ class Board:
                 return target
         return None
 
-    def promotion(self, target: Coords) -> bool:
+    def check_promotion(self, target: Coords) -> bool:
         piece = self.get_piece(target)
         if isinstance(piece, Pawn):
             if (
@@ -299,7 +301,18 @@ class Board:
                 return True
         return False            
 
+    # @param coords: The coordinates of a pawn at the final row
+    # @param piece_type: The piece type the user chooses
+    def promote_pawn(self, coords, piece_type):
+        self.promotion_flag = False
+        piece = self.get_piece(coords)
+        square = self.get_square(coords)
+        color = piece.color
+        square.piece = piece_type(color)
+
     def move_piece(self, origin, target) -> MoveReturn:
+        if self.promotion_flag:
+            raise PromotionWaitException("Choose pawn promotion")
         if not on_board(origin) or not on_board(target):
             raise NotOnBoardException("Coordinates not on board")
         if origin == target:
@@ -330,16 +343,16 @@ class Board:
             self.white_turn = not self.white_turn
             other_color = origin_piece.color.other_color()
             other_king = self.find_king_coords(other_color)
-           
-           
-            promotion_flag = self.promotion(target)
+
+
+            self.promotion_flag = self.check_promotion(target)
             game_status = BoardStatus.Normal
             if self.coords_under_threat(other_color, other_king):
                 print("Check")
                 game_status = BoardStatus.Check
                 # TODO add checkmate check
             # TODO stalemate
-            return MoveReturn(status=game_status, promotion=promotion_flag)
+            return MoveReturn(status=game_status, promotion=self.promotion_flag)
         else:
             raise IllegalMoveException(f"Illegal move: {origin, target}")
 

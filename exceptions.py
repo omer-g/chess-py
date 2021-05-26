@@ -20,7 +20,9 @@ class IllegalMoveException(ValueError):
 class KingThreatenedException(ValueError):
     pass
 
+class PromotionWaitException(ValueError):
+    pass
 
-# A missing king means the game state is invalid and program should terminate
+# A missing king means program should terminate
 class NoKingError(RuntimeError):
     pass

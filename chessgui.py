@@ -148,7 +148,7 @@ class BoardWindow(QtWidgets.QWidget):
         self.origin_square = square
         self.piece_lifted = True
 
-    # @param square: a square that was doublec clicked    
+    # @param square: a square that was double clicked    
     def handleDoubleClick(self, square):
         if square.piece and not self.piece_lifted:
             self.lift_piece(square)
@@ -156,15 +156,20 @@ class BoardWindow(QtWidgets.QWidget):
             try:
                 origin = self.square_to_board_coords(self.origin_square)
                 target = self.square_to_board_coords(square)
-                self.board.move_piece(origin, target)
-                self.set_pieces(self.board.get_state())
-                self.piece_lifted = False
-
+                move_return = self.board.move_piece(origin, target)
             except Exception as e:
                 print(e)
                 self.piece_lifted = False
                 self.origin_square = None
+            else:
+                self.set_pieces(self.board.get_state())
+                self.piece_lifted = False
 
+                if move_return.promotion:
+                    # TODO here ask everyone
+                    self.board.promote_pawn(target, Queen)
+                    self.set_pieces(self.board.get_state())
+              
     
 if __name__=="__main__":
     app = QtWidgets.QApplication([])
