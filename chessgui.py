@@ -10,12 +10,12 @@ DARK_COLOR = "grey"
 BRIGHT_COLOR = "rgb(255, 253, 208)"
 
 PIECE_TO_PNG = {
-    Pieces.Pawn: "pawn.png",
-    Pieces.Rook: "rook.png",
-    Pieces.Knight: "knight.png",
-    Pieces.Bishop: "bishop.png",
-    Pieces.Queen: "queen.png",
-    Pieces.King: "king.png"
+    Pawn: "pawn.png",
+    Rook: "rook.png",
+    Knight: "knight.png",
+    Bishop: "bishop.png",
+    Queen: "queen.png",
+    King: "king.png"
 }
 
 COLOR_TO_PNG = {

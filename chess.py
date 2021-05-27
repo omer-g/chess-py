@@ -132,8 +132,8 @@ class Board:
                 moves.add(new_coords)
         
         # Check if castling physically could be possible.
-        # Does not check if king is threatened.
-        # TODO refactor - check rook (rewrite separate to functions)
+        # Does not check if king threatened.
+        # TODO refactor (separate to functions)
         if self.get_piece(origin).moves_counter == 0:
             k_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
             for k_dir, r_position in zip(k_dirs, r_positions):
@@ -282,6 +282,18 @@ class Board:
         rook_target = Coords(rook_coords.r, rook_coords.c + rook_delta)
         self.__move_no_checks([(origin, target), (rook_coords, rook_target)])
 
+    def get_game_status(self, color):
+        opponent_color = color.other_color()
+        opponent_king = self.find_king_coords(opponent_color)
+
+        game_status = BoardStatus.Normal
+        if self.coords_under_threat(opponent_color, opponent_king):
+            print("Check")
+            game_status = BoardStatus.Check
+            # TODO add checkmate check
+        # TODO stalemate
+        return game_status
+
 
     # @param origin, target: coordinates of a quasi-legal move
     # @param passant_victim: coordinates of en passant victim
@@ -329,6 +341,8 @@ class Board:
         square = self.get_square(coords)
         color = piece.color
         square.piece = piece_type(color)
+        # TODO return this
+        game_status = self.get_game_status(color)
 
     def move_piece(self, origin, target) -> MoveReturn:
         if self.promotion_flag:
@@ -337,11 +351,9 @@ class Board:
             raise NotOnBoardException("Coordinates not on board")
         if origin == target:
             raise SameSquareException("Same square")
-
         origin_piece = self.get_piece(origin)
         if not origin_piece:
             raise NoPieceException(f"No piece in {origin}")
-        
         if origin_piece.color != Board.curr_player_color[self.white_turn]:
             raise WrongTurnException("Not your turn")
 
@@ -359,41 +371,19 @@ class Board:
             # If pawn double-traveled en passant may be possible next move
             self.en_passant_pawn = self.pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
-
-            # TODO move this to a function
-            other_color = origin_piece.color.other_color()
-            other_king = self.find_king_coords(other_color)
-
             self.promotion_flag = self.check_promotion(target)
-            game_status = BoardStatus.Normal
-            if self.coords_under_threat(other_color, other_king):
-                print("Check")
-                game_status = BoardStatus.Check
-                # TODO add checkmate check
-            # TODO stalemate
+            game_status = self.get_game_status(origin_piece.color)
             return MoveReturn(status=game_status, promotion=self.promotion_flag)
         else:
             raise IllegalMoveException(f"Illegal move: {origin, target}")
 
     # @return: Board with (color, piece-type) tuples or (None, None)
     def get_state(self):
-        # No NoneType reference in types module
-        NoneType = type(None)
-        # TODO remove this - pass type or None directly
-        pieces_dict = {
-            Pawn: Pieces.Pawn,
-            Rook: Pieces.Rook,
-            Knight: Pieces.Knight,
-            Bishop: Pieces.Bishop,
-            Queen: Pieces.Queen,
-            King: Pieces.King,
-            NoneType: None
-            }
         board_state = [[] for _ in range(DIM)]
         for i, row in enumerate(self.board):
             for square in row:
                 color = square.piece.color if square.piece else None
-                piece_type = pieces_dict[type(square.piece)]
+                piece_type = type(square.piece) if square.piece else None
                 board_state[i].append(((color, piece_type)))
         return board_state
 
@@ -419,8 +409,8 @@ if __name__=="__main__":
     print(board)
     board.move_piece(Coords(6,4), Coords(4,4))
     print(board)
-    board.move_piece(Coords(0,5), Coords(4,1))
-    print(board)
-    board.move_piece(Coords(6,3), Coords(5,3))
-    print(board)
+    # board.move_piece(Coords(0,5), Coords(4,1))
+    # print(board)
+    # board.move_piece(Coords(6,3), Coords(5,3))
+    # print(board)
     

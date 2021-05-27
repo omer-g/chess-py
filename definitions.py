@@ -122,7 +122,8 @@ class Record:
         return (" ".join(map(str, [self.coords,
                                    self.piece_type,
                                    self.color,
-                                   self.moves_counter])))
+                                   self.moves_counter]))
+        )
 
 if __name__=="__main__":
     print(Record(Coords(1,2), Pawn(Colors.Black)))
