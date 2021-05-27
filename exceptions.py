@@ -23,6 +23,9 @@ class KingThreatenedException(ValueError):
 class PromotionWaitException(ValueError):
     pass
 
+class RevertException(ValueError):
+    pass
+
 # A missing king means program should terminate
 class NoKingError(RuntimeError):
     pass

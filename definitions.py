@@ -18,8 +18,6 @@ class BoardStatus(Enum):
     Checkmate = auto(),
     Stalemate = auto()
 
-MoveReturn = namedtuple("MoveReturn", "status, promotion")
-
 
 class Pieces(Enum):
     Pawn = 1,
@@ -40,10 +38,10 @@ class Colors(Enum):
     def __str__(self):
         return "black" if self == Colors.Black else "white"
 
+MoveReturn = namedtuple("MoveReturn", "status, promotion")
 
 # Named tuple of coordinates
 Coords = namedtuple("Coords", "r, c")
-
 
 # Print Coords as regular tuples
 def print_coords(self):
@@ -51,7 +49,6 @@ def print_coords(self):
     return str(t)
 Coords.__str__ = print_coords
 Coords.__repr__ = Coords.__str__
-
 
 # Check if coordinates on board
 def on_board(coords):
@@ -62,9 +59,10 @@ def on_board(coords):
 
 
 class Piece:
-    def __init__(self, color, text):
+    def __init__(self, color, text, moves_counter = 0):
         self.color = color
         self.text = text
+        self.moves_counter = moves_counter
         self.moves = set()
         self.threatens = set()
     
@@ -76,29 +74,29 @@ class Piece:
 
 
 class Pawn(Piece):
-    def __init__(self, color):
-        super().__init__(color, "P")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "P", moves_counter = 0)
 
 class Rook(Piece):
-    def __init__(self, color):
-        super().__init__(color, "R")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "R", moves_counter = 0)
         self.can_castle = True
 
 class Knight(Piece):
-    def __init__(self, color):
-        super().__init__(color, "N")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "N", moves_counter = 0)
 
 class Bishop(Piece):
-    def __init__(self, color):
-        super().__init__(color, "B")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "B", moves_counter = 0)
 
 class Queen(Piece):
-    def __init__(self, color):
-        super().__init__(color, "Q")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "Q", moves_counter = 0)
 
 class King(Piece):
-    def __init__(self, color):
-        super().__init__(color, "K")
+    def __init__(self, color, moves_counter = 0):
+        super().__init__(color, "K", moves_counter = 0)
         self.can_castle = True
 
 
@@ -111,3 +109,21 @@ class Square:
         return self.piece.__str__() if self.piece else "  "
     
     __repr__ = __str__
+
+
+class Record:
+    def __init__(self, coords: Coords, piece):
+        self.coords = coords
+        self.piece_type = type(piece) if piece else None
+        self.color = piece.color if piece else None
+        self.moves_counter = piece.moves_counter if piece else None
+
+    def __str__(self) -> str:
+        return (" ".join(map(str, [self.coords,
+                                   self.piece_type,
+                                   self.color,
+                                   self.moves_counter])))
+
+if __name__=="__main__":
+    print(Record(Coords(1,2), Pawn(Colors.Black)))
+    print(Record(Coords(1,2), None))

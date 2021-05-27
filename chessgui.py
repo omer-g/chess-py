@@ -166,7 +166,7 @@ class BoardWindow(QtWidgets.QWidget):
                 self.piece_lifted = False
 
                 if move_return.promotion:
-                    # TODO here ask everyone
+                    # TODO here ask for promotion piece
                     self.board.promote_pawn(target, Queen)
                     self.set_pieces(self.board.get_state())
               

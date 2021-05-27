@@ -1,6 +1,7 @@
 from definitions import *
 from exceptions import *
 from functools import partial
+from collections import deque
 
 
 class Board:
@@ -12,6 +13,7 @@ class Board:
         self.white_turn = white_turn
         self.en_passant_pawn = None
         self.promotion_flag = False
+        self.moves_record = deque()
 
         # Create empty board
         board = [[] for i in range(DIM)]
@@ -42,7 +44,7 @@ class Board:
             self.board[row][4].piece = King(color)
             self.board[row][3].piece = Queen(color)
  
-    def get_square(self, coords):
+    def get_square(self, coords) -> Square:
         return self.board[coords[0]][coords[1]]
     
     def get_piece(self, coords):
@@ -131,8 +133,8 @@ class Board:
         
         # Check if castling physically could be possible.
         # Does not check if king is threatened.
-        # TODO refactor
-        if self.get_piece(origin).can_castle == True:
+        # TODO refactor - check rook (rewrite separate to functions)
+        if self.get_piece(origin).moves_counter == 0:
             k_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
             for k_dir, r_position in zip(k_dirs, r_positions):
                 castle_allowed = True
@@ -142,12 +144,15 @@ class Board:
                     if target_piece:
                         castle_allowed = False
                 # Check square next to rook
-                next_to_rook = Coords(origin[0], r_position + k_dir * (-1))
-                if self.get_piece(next_to_rook):
-                    castle_allowed = False
-                if castle_allowed:
-                    king_target = Coords(origin[0], origin[1] + 2 * k_dir)
-                    moves.add(king_target)
+                rook_coords = Coords(origin.r, r_position)
+                rook = self.get_piece(rook_coords)
+                if isinstance(rook, Rook) and rook.moves_counter == 0:
+                    next_to_rook = Coords(origin[0], r_position + k_dir * (-1))
+                    if self.get_piece(next_to_rook):
+                        castle_allowed = False
+                    if castle_allowed:
+                        king_target = Coords(origin[0], origin[1] + 2 * k_dir)
+                        moves.add(king_target)
         return moves, threatens
 
     # @param origin: starting coordinates of knight
@@ -220,69 +225,84 @@ class Board:
                 return True
         return False
 
-    def __move_no_checks(self, origin, target):  
-        origin_square = self.get_square(origin)
-        target_square = self.get_square(target)
-        target_square.piece = origin_square.piece
-        origin_square.piece = None
+    def revert(self):
+        if len(self.moves_record) == 0:
+            raise RevertException("Cannot revert - no moves")
+        prev_move = self.moves_record.pop()
+        for record in prev_move:
+            square = self.get_square(record.coords)
+            if record.piece_type:
+                square.piece = record.piece_type(record.color,
+                                                 record.moves_counter)
+            else:
+                square.piece = None
 
-    # @param origin, target: coordinates of a legal move
+    # @param move: List of origin and target tuples of Coords.
+    #              (origin, None) for an en passant victim pawn.
+    # @return: None. Performs move on board and updates the moves record
+    def __move_no_checks(self, move):
+        move_steps = move
+        move_record = []
+        for step in move_steps:
+            origin, target = step
+            if target:
+                origin_square = self.get_square(origin)
+                move_record.append(Record(origin, origin_square.piece))
+                target_square = self.get_square(target)
+                move_record.append(Record(target, target_square.piece))
+                target_square.piece = origin_square.piece
+                target_square.piece.moves_counter += 1
+                origin_square.piece = None
+            else:
+                origin_square = self.get_square(origin)
+                move_record.append(Record(origin, origin_square.piece))
+                origin_square.piece = None
+        self.moves_record.append(move_record)
+
+    def __move_castle(self, origin, target):
+        castling_options = {2: (DIM_ZERO, -2, 1), -2: (0, 3, -1)}
+        column_diff = target.c - origin.c
+        rook_column, rook_delta, king_dir = castling_options[column_diff]
+        king = self.get_piece(origin)
+        color = king.color
+        rook_coords = Coords(origin.r, rook_column)
+        rook = self.get_piece(rook_coords)
+        if (rook.moves_counter > 0 or
+            king.moves_counter > 0 or
+            rook.color != color
+        ):
+            raise IllegalMoveException("Cannot castle")
+        # Check king's path for threats
+        for i in range(3):
+            new_coords = Coords(origin.r, origin.c + i * king_dir)
+            if self.coords_under_threat(color, new_coords):
+                raise KingThreatenedException("King threatened, cannot castle")
+
+        # Perform castling
+        rook_target = Coords(rook_coords.r, rook_coords.c + rook_delta)
+        self.__move_no_checks([(origin, target), (rook_coords, rook_target)])
+
+
+    # @param origin, target: coordinates of a quasi-legal move
     # @param passant_victim: coordinates of en passant victim
     def __perform_move(self, origin, target, passant_coords = None):
-        # Keep tuple records of (square, piece) to revert an illegal move
-        revert = list()
 
         origin_piece = self.get_piece(origin)
-        target_piece = self.get_piece(target)
-        revert.append((target, target_piece))
-        revert.append((origin, origin_piece))
-        # Check if king is threatened, before a move is done
-        self.__move_no_checks(origin, target)
-        # Other than castling scenario, check king safety only after move
-        check_threatened = set([self.find_king_coords(origin_piece.color)])
+        move = [(origin, target)]
 
-        if passant_coords:
-            passant_victim_square = self.get_square(passant_coords)
-            revert.append((passant_coords, passant_victim_square.piece))
-            passant_victim_square.piece = None
-
-
-        # Set of coordinates king passes to check threats
-        castled = False
-        if type(origin_piece) == King:
-            check_threatened.add(target)
-            horizontal_steps = self.sub_coords(target, origin)[1]
-            if abs(horizontal_steps) == 2:
-                # Don't allow king to castle under threat 
-                check_threatened.add(origin)
-                rook_coords, rook_target = None, None
-                # TODO refactor this
-                if horizontal_steps == 2:
-                    check_threatened.add(Coords(origin[0], origin[1] + 1))
-                    rook_coords = Coords(origin[0], DIM_ZERO)
-                    rook_target = Coords(origin[0], DIM_ZERO - 2)
-                if self.sub_coords(target, origin)[1] == -2:
-                    check_threatened.add(Coords(origin[0], origin[1] - 1))
-                    rook_coords = Coords(origin[0], 0)
-                    rook_target = Coords(origin[0], 3)
-                revert.append((rook_coords, self.get_piece(rook_coords)))
-                revert.append((rook_target, self.get_piece(rook_target)))
-
-                self.__move_no_checks(rook_coords, rook_target)
-                self.get_piece(rook_target).can_castle = False
-                castled = True
-            origin_piece.can_castle = False
-        
-        for coords_to_check in check_threatened:
-            if self.coords_under_threat(origin_piece.color, coords_to_check):
-                for coords, piece in revert:
-                    square = self.get_square(coords)
-                    square.piece = piece
-                    if (
-                        castled and
-                        (isinstance(piece, King) or isinstance(piece, Rook))
-                    ):
-                        piece.can_castle = True
+        # Castle
+        if isinstance(origin_piece, King) and abs(target[1] - origin[1]) == 2:
+            # King safety checked inside
+            self.__move_castle(origin, target)
+        else:
+            # En passant
+            if passant_coords:
+                move.append((passant_coords, None))
+            self.__move_no_checks(move)
+            # Check king safety and revert if needed
+            king_coords = self.find_king_coords(origin_piece.color)
+            if self.coords_under_threat(origin_piece.color, king_coords):
+                self.revert()
                 raise KingThreatenedException("King under threat")
 
     def pawn_two_squares(self, origin, target):
@@ -330,20 +350,19 @@ class Board:
             raise SameColorException("Same color")
         self.update_moves(origin)
 
-
         do_en_passant = self.check_en_passant(origin, target)
-
         if target in origin_piece.moves or do_en_passant:
             if do_en_passant:
                 self.__perform_move(origin, target, self.en_passant_pawn)
             else:
                 self.__perform_move(origin, target)
-            # Mark if a pawn double-traveled and en passant may be possible
+            # If pawn double-traveled en passant may be possible next move
             self.en_passant_pawn = self.pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
+
+            # TODO move this to a function
             other_color = origin_piece.color.other_color()
             other_king = self.find_king_coords(other_color)
-
 
             self.promotion_flag = self.check_promotion(target)
             game_status = BoardStatus.Normal
@@ -360,6 +379,7 @@ class Board:
     def get_state(self):
         # No NoneType reference in types module
         NoneType = type(None)
+        # TODO remove this - pass type or None directly
         pieces_dict = {
             Pawn: Pieces.Pawn,
             Rook: Pieces.Rook,
@@ -395,5 +415,12 @@ class Board:
 if __name__=="__main__":
     board = Board()
     print(board)
-    # board.move_piece(Coords(1,4), Coords(3,4))
-    # print(board)
+    board.move_piece(Coords(1,4), Coords(3,4))
+    print(board)
+    board.move_piece(Coords(6,4), Coords(4,4))
+    print(board)
+    board.move_piece(Coords(0,5), Coords(4,1))
+    print(board)
+    board.move_piece(Coords(6,3), Coords(5,3))
+    print(board)
+    
