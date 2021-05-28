@@ -5,7 +5,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtCore
 
 
-DIM = 700
+WINDOW_DIM = 800
 DARK_COLOR = "grey"
 BRIGHT_COLOR = "rgb(255, 253, 208)"
 
@@ -103,7 +103,7 @@ class BoardWindow(QtWidgets.QWidget):
 
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
-        self.resize(DIM,DIM)        
+        self.resize(WINDOW_DIM,WINDOW_DIM)        
         self.setStyleSheet("BoardWindow {background-color: rgb(0,139,139);}")
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
         
