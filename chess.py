@@ -1,3 +1,4 @@
+from typing import Union
 from definitions import *
 from exceptions import *
 from functools import partial
@@ -12,7 +13,7 @@ class Board:
     def __init__(self, white_turn = True, state = None):
         self.white_turn = white_turn
         self.en_passant_pawn = None
-        self.promote_flag = False
+        self.promote_coords = None
         self.moves_record = deque()
 
         board = [[] for i in range(DIM)]
@@ -321,15 +322,15 @@ class Board:
                 return target
         return None
 
-    def _check_promotion(self, target: Coords) -> bool:
+    def _check_promotion(self, target: Coords) -> Union[Coords, None]:
         piece = self._get_piece(target)
         if isinstance(piece, Pawn):
             if (
                 piece.color == Colors.White and target.r == DIM_ZERO or
                 piece.color == Colors.Black and target.r == 0
             ):
-                return True
-        return False            
+                return target
+        return None   
 
 
 ########################### API START ###########################
@@ -365,21 +366,23 @@ class Board:
         except Exception as e:
             print(e)
 
-    # @param coords: The coordinates of a pawn at the final row
     # @param piece_type: The piece type the user chooses
-    def promote_pawn(self, coords: Coords, piece_type):
-        self.promote_flag = False
+    def promote_pawn(self, piece_type):
+        if not self.promote_coords:
+            raise RuntimeError("Error - no pawn to promote")
+        coords = self.promote_coords
+        self.promote_coords = None
         piece = self._get_piece(coords)
         square = self._get_square(coords)
         color = piece.color
         square.piece = piece_type(color)
-        # TODO return this
+        # TODO return a MoveReturn
         game_status = self.get_status(color)
 
     # @param origin: start coordinate of move
     # @param target: end coordinate
     def move_piece(self, origin: Coords, target: Coords) -> MoveReturn:
-        if self.promote_flag:
+        if self.promote_coords:
             raise PromotionWaitException("Choose pawn promotion")
         if not on_board(origin) or not on_board(target):
             raise NotOnBoardException("Coordinates not on board")
@@ -405,9 +408,9 @@ class Board:
             # If pawn double-traveled en passant may be possible next move
             self.en_passant_pawn = self._pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
-            self.promote_flag = self._check_promotion(target)
+            self.promote_coords = self._check_promotion(target)
             game_status = self.get_status(origin_piece.color)
-            return MoveReturn(status=game_status, promotion=self.promote_flag)
+            return MoveReturn(status=game_status, promotion=self.promote_coords)
         else:
             raise IllegalMoveException(f"Illegal move: {origin, target}")
 
@@ -433,10 +436,27 @@ def text_to_coords(coords_str):
     return Coords(r, c)
 
 
+def console_promote(board):
+    char_to_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
+    print(board)
+    print("Choose promotion (Q, R, B, N):")
+    while True:
+        try: 
+            choice = input()
+            if choice not in list("QRBN"):
+                raise ValueError("Invalid promotion choice, try again:")
+            board.promote_pawn(char_to_piece[choice])
+        except ValueError as e:
+            print(e)
+        else:
+            break
+
+
+
 if __name__=="__main__":
     board = Board()
     print("chess-py console\n")
-    print("Move: 'e2 e4'\nRevert last move: 'r'\nExit: 'q'\n")
+    print("Move: 'e2 e4'\nRevert last move: 'r'\nExit: '0'\n")
     print(board)
     while True:
         print("Enter move:")
@@ -449,13 +469,15 @@ if __name__=="__main__":
             finally:
                 print(board)
                 continue
-        if move_input == 'q':
+        if move_input == '0':
             break
 
         try:
             start, end = move_input.split(" ")
-            board.move_piece(text_to_coords(start), text_to_coords(end))
-        except Exception as e:
+            move_return = board.move_piece(text_to_coords(start), text_to_coords(end))
+            if move_return.promotion:
+                console_promote(board)
+        except ValueError as e:
             print(e)
         finally:
             print(board)

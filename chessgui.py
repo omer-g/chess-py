@@ -4,10 +4,13 @@ from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 
+from functools import partial
 
 WINDOW_DIM = 800
 DARK_COLOR = "grey"
 BRIGHT_COLOR = "rgb(255, 253, 208)"
+BACKGROUND_COLOR = "rgb(0,139,139)"
+
 
 PIECE_TO_PNG = {
     Pawn: "pawn.png",
@@ -91,6 +94,34 @@ class BoardWindow(QtWidgets.QWidget):
         row, col = coords
         return tuple(self.gui_to_board_coords((row, col)))
 
+    def call_promote(self, piece_type):
+        self.board.promote_pawn(piece_type)
+        self.set_pieces(self.board.get_state())
+        
+    def promote_dialog(self):
+        promote_pieces = {
+            Knight: "Knight",
+            Bishop: "Bishop",
+            Rook: "Rook",
+            Queen: "Queen"
+        }
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+        dialog_layout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.TopToBottom)
+        dialog.setStyleSheet(f"QDialog {{background-color: {BACKGROUND_COLOR};}}")
+        dialog.setLayout(dialog_layout)
+
+        for piece_type in promote_pieces:
+            button = QtWidgets.QPushButton(promote_pieces[piece_type], dialog)
+            button.setStyleSheet("QPushButton {border: none};")
+            button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT_COLOR};}}")
+            button.isFlat = True
+
+            button.clicked.connect(partial(self.call_promote, piece_type))
+            button.clicked.connect(dialog.close)
+            dialog_layout.addWidget(button)
+        dialog.exec()
+
     # @param white_perspective: direction of board
     def __init__(self, white_perspective = True):
         super().__init__()
@@ -104,7 +135,7 @@ class BoardWindow(QtWidgets.QWidget):
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
         self.resize(WINDOW_DIM,WINDOW_DIM)        
-        self.setStyleSheet("BoardWindow {background-color: rgb(0,139,139);}")
+        self.setStyleSheet(f"BoardWindow {{background-color: {BACKGROUND_COLOR};}}")
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
         
         self.board = Board()
@@ -154,21 +185,17 @@ class BoardWindow(QtWidgets.QWidget):
             self.lift_piece(square)
         elif self.piece_lifted:
             try:
+                self.piece_lifted = False
                 origin = self.square_to_board_coords(self.origin_square)
                 target = self.square_to_board_coords(square)
                 move_return = self.board.move_piece(origin, target)
             except Exception as e:
                 print(e)
-                self.piece_lifted = False
                 self.origin_square = None
             else:
                 self.set_pieces(self.board.get_state())
-                self.piece_lifted = False
-
                 if move_return.promotion:
-                    # TODO here ask for promotion piece
-                    self.board.promote_pawn(target, Queen)
-                    self.set_pieces(self.board.get_state())
+                    self.promote_dialog()
               
     
 if __name__=="__main__":
