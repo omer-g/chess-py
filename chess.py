@@ -402,15 +402,38 @@ class Board:
         return output_str
 
 
+# A simple console interface
+
+def text_to_coords(coords_str):
+    letter_num = {}
+    for i, c in enumerate("abcdefgh"):
+        letter_num[c] = i
+    nums = "12345678"
+    letter, num = coords_str
+    if not letter in letter_num or not num in nums:
+        raise ValueError(f"invalid coordinates: {coords_str}")
+    c = letter_num[letter]
+    r = int(num) - 1
+    return Coords(r, c)
+
+
 if __name__=="__main__":
     board = Board()
+    print("chess-py console\n")
+    print("move: 'e2 e4'\nexit: '0 0'\n")
     print(board)
-    board.move_piece(Coords(1,4), Coords(3,4))
-    print(board)
-    board.move_piece(Coords(6,4), Coords(4,4))
-    print(board)
-    # board.move_piece(Coords(0,5), Coords(4,1))
-    # print(board)
-    # board.move_piece(Coords(6,3), Coords(5,3))
-    # print(board)
-    
+    while True:
+        try:
+            print("enter your move:")
+            in1, in2 = input().split()
+        except Exception as e:
+            print(e)
+            continue
+        if in1 == "0" and in2 == "0":
+            break
+        try:
+            board.move_piece(text_to_coords(in1), text_to_coords(in2))
+        except Exception as e:
+            print(e)
+        finally:
+            print(board)
