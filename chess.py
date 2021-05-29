@@ -13,7 +13,7 @@ class Board:
     def __init__(self, white_turn = True, state = None):
         self.white_turn = white_turn
         self.en_passant_pawn = None
-        self.promote_coords = None
+        self.promotion_coords = None
         self.moves_record = deque()
 
         board = [[] for i in range(DIM)]
@@ -101,12 +101,15 @@ class Board:
                     threatens.add(square)
         return moves, threatens
 
+    def _pawn_direction(self, color):
+        return 1 if color == Colors.White else -1
+
     # @param coords: coordinates of pawn
     # @param color: color of pawn
     # @return: set of legal moves pawn can make, and squares threatened by it
     #          does not include en passant
     def _pawn_moves(self, coords, color):
-        vertical = 1 if color == Colors.White else -1
+        vertical = self._pawn_direction(color)
         moves, threatens = set(), set()
         
         # Forward movement
@@ -202,6 +205,13 @@ class Board:
         piece_function = piece_functions[type(piece)]
         piece.moves, piece.threatens = piece_function(coords, piece.color)
 
+    # Update moves and threatens of all pieces of a certain color
+    def _update_all_moves(self, color):
+        for row in self.board:
+            for square in row:
+                if square.piece and square.piece.color == color:
+                    self._update_moves(square.coords)
+
     def _coords_under_threat(self, player_color: Colors, coords: Coords):
         enemy_color = player_color.other_color()
         for row in self.board:
@@ -254,6 +264,7 @@ class Board:
                 target_square.piece.moves_counter += 1
                 origin_square.piece = None
             else:
+                # This is the en passant victim pawn
                 origin_square = self._get_square(origin)
                 move_record.append(Record(origin, origin_square.piece))
                 origin_square.piece = None
@@ -330,8 +341,33 @@ class Board:
                 piece.color == Colors.Black and target.r == 0
             ):
                 return target
-        return None   
+        return None
 
+    def _check_mate(self, king_color):
+        king_coords = self._find_king_coords(king_color)
+
+        # TODO write more efficient version:
+            # Check if double threat
+            # Check pinned pieces
+            # Check if any piece can block or eat
+            # Check if king can move
+
+        # TODO refactor this
+        self._update_all_moves(king_color)
+        for row in self.board:
+            for square in row:
+                piece = square.piece
+                if piece and piece == king_color:
+                    for move in piece.moves:
+                        try:
+                            self._perform_move(king_coords, move)
+                        except ValueError as e:
+                            continue
+                        else:
+                            # Legal move found, revert.
+                            self._revert()
+                            return False
+        return True
 
 ########################### API START ###########################
 
@@ -343,9 +379,12 @@ class Board:
 
         game_status = BoardStatus.Normal
         if self._coords_under_threat(opponent_color, opponent_king):
-            print("Check")
             game_status = BoardStatus.Check
-            # TODO add checkmate check
+            if self._check_mate(opponent_color):
+                print("Checkmate")
+                game_status = BoardStatus.Checkmate
+            else:
+                print("Check")
         # TODO stalemate
         return game_status
 
@@ -368,10 +407,10 @@ class Board:
 
     # @param piece_type: The piece type the user chooses
     def promote_pawn(self, piece_type):
-        if not self.promote_coords:
+        if not self.promotion_coords:
             raise RuntimeError("Error - no pawn to promote")
-        coords = self.promote_coords
-        self.promote_coords = None
+        coords = self.promotion_coords
+        self.promotion_coords = None
         piece = self._get_piece(coords)
         square = self._get_square(coords)
         color = piece.color
@@ -382,7 +421,7 @@ class Board:
     # @param origin: start coordinate of move
     # @param target: end coordinate
     def move_piece(self, origin: Coords, target: Coords) -> MoveReturn:
-        if self.promote_coords:
+        if self.promotion_coords:
             raise PromotionWaitException("Choose pawn promotion")
         if not on_board(origin) or not on_board(target):
             raise NotOnBoardException("Coordinates not on board")
@@ -408,9 +447,10 @@ class Board:
             # If pawn double-traveled en passant may be possible next move
             self.en_passant_pawn = self._pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
-            self.promote_coords = self._check_promotion(target)
+            self.promotion_coords = self._check_promotion(target)
             game_status = self.get_status(origin_piece.color)
-            return MoveReturn(status=game_status, promotion=self.promote_coords)
+            return MoveReturn(status=game_status,
+                              promotion=self.promotion_coords)
         else:
             raise IllegalMoveException(f"Illegal move: {origin, target}")
 
@@ -452,7 +492,6 @@ def console_promote(board):
             break
 
 
-
 if __name__=="__main__":
     board = Board()
     print("chess-py console\n")
@@ -471,12 +510,13 @@ if __name__=="__main__":
                 continue
         if move_input == '0':
             break
-
         try:
             start, end = move_input.split(" ")
-            move_return = board.move_piece(text_to_coords(start), text_to_coords(end))
-            if move_return.promotion:
+            move = board.move_piece(text_to_coords(start), text_to_coords(end))
+            if move.promotion:
                 console_promote(board)
+            if move.status == BoardStatus.Checkmate:
+                break
         except ValueError as e:
             print(e)
         finally:

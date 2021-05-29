@@ -3,16 +3,18 @@ from chess import *
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
-
 from functools import partial
 
+
+# Size of window
 WINDOW_DIM = 800
-DARK_COLOR = "grey"
-BRIGHT_COLOR = "rgb(255, 253, 208)"
-BACKGROUND_COLOR = "rgb(0,139,139)"
 
+# Colors
+DARK = "grey"
+BRIGHT = "rgb(255, 253, 208)"
+BG = "rgb(0,139,139)"
 
-PIECE_TO_PNG = {
+PIECE_PNG = {
     Pawn: "pawn.png",
     Rook: "rook.png",
     Knight: "knight.png",
@@ -21,7 +23,7 @@ PIECE_TO_PNG = {
     King: "king.png"
 }
 
-COLOR_TO_PNG = {
+COLOR_PNG = {
         Colors.Black: "b_",
         Colors.White: "w_"
 }
@@ -34,7 +36,8 @@ class BoardPiece(QtWidgets.QLabel):
         self.kind = kind
         self.color = color
         if color and kind:
-            pix_map = QtGui.QPixmap(f"pieces/{COLOR_TO_PNG[color]}{PIECE_TO_PNG[kind]}")
+            pix_map = QtGui.QPixmap("pieces/"
+                                    f"{COLOR_PNG[color]}{PIECE_PNG[kind]}")
             self.setPixmap(pix_map.scaled(int(parent.width()*0.5),
                     int(parent.width()*0.5), QtCore.Qt.KeepAspectRatio))
 
@@ -108,13 +111,13 @@ class BoardWindow(QtWidgets.QWidget):
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowFlag(QtCore.Qt.FramelessWindowHint)
         dialog_layout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.TopToBottom)
-        dialog.setStyleSheet(f"QDialog {{background-color: {BACKGROUND_COLOR};}}")
+        dialog.setStyleSheet(f"QDialog {{background-color: {BG};}}")
         dialog.setLayout(dialog_layout)
 
         for piece_type in promote_pieces:
             button = QtWidgets.QPushButton(promote_pieces[piece_type], dialog)
             button.setStyleSheet("QPushButton {border: none};")
-            button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT_COLOR};}}")
+            button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT};}}")
             button.isFlat = True
 
             button.clicked.connect(partial(self.call_promote, piece_type))
@@ -135,24 +138,23 @@ class BoardWindow(QtWidgets.QWidget):
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
         self.resize(WINDOW_DIM,WINDOW_DIM)        
-        self.setStyleSheet(f"BoardWindow {{background-color: {BACKGROUND_COLOR};}}")
+        self.setStyleSheet(f"BoardWindow {{background-color: {BG};}}")
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
         
         self.board = Board()
         self.board_widget = QtWidgets.QFrame(self)
         self.board_squares = [[] for i in range(8)]
-
-        positions = [(i, j) for i in range(8) for j in range(8)]
-
         board_layout = QtWidgets.QGridLayout()
         board_layout.setSpacing(0)
         self.board_widget.setLayout(board_layout)
-        # TODO change this?
+
+        
+        positions = [(i, j) for i in range(8) for j in range(8)]
         for i, j in positions:
             r, c = self.gui_to_board_coords((i, j))
 
             # Square color based on logic board coordinates
-            square_color = DARK_COLOR if (r + c) % 2 == 1 else BRIGHT_COLOR
+            square_color = DARK if (r + c) % 2 == 1 else BRIGHT
             square = BoardSquare(self, self.board_widget, square_color, (i, j))
             self.board_squares[i].append(square)
             board_layout.addWidget(square, i, j)
@@ -196,8 +198,8 @@ class BoardWindow(QtWidgets.QWidget):
                 self.set_pieces(self.board.get_state())
                 if move_return.promotion:
                     self.promote_dialog()
-              
-    
+
+
 if __name__=="__main__":
     app = QtWidgets.QApplication([])
     mw = BoardWindow()
