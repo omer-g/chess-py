@@ -5,6 +5,7 @@ from functools import partial
 from collections import deque
 
 # Search "API START" for interface functions
+
 class Board:
     player_colors = { True: Colors.White, False: Colors.Black }
 
@@ -150,24 +151,25 @@ class Board:
         # Does not check if king threatened.
         # TODO refactor (separate to functions)
         if self._get_piece(origin).moves_counter == 0:
-            k_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
-            for k_dir, r_position in zip(k_dirs, r_positions):
+            king_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
+            for king_dir, rook_pos in zip(king_dirs, r_positions):
                 castle_allowed = True
                 for i in range(1,3):
-                    new_coords = Coords(origin[0], origin[1] + i * k_dir)
+                    new_coords = Coords(origin[0], origin[1] + i * king_dir)
                     target_piece = self._get_piece(new_coords)
                     if target_piece:
                         castle_allowed = False
                 # Check square next to rook
-                rook_coords = Coords(origin.r, r_position)
+                rook_coords = Coords(origin.r, rook_pos)
                 rook = self._get_piece(rook_coords)
                 if isinstance(rook, Rook) and rook.moves_counter == 0:
-                    next_to_rook = Coords(origin[0], r_position + k_dir * (-1))
+                    next_to_rook = Coords(origin[0], rook_pos + king_dir * (-1))
                     if self._get_piece(next_to_rook):
                         castle_allowed = False
                     if castle_allowed:
-                        king_target = Coords(origin[0], origin[1] + 2 * k_dir)
-                        moves.add(king_target)
+                        # Calculate target square of king
+                        target = Coords(origin[0], origin[1] + 2 * king_dir)
+                        moves.add(target)
         return moves, threatens
 
     # @param origin: starting coordinates of knight
@@ -247,7 +249,7 @@ class Board:
                 return True
         return False
 
-    # @param move: List of origin and target tuples of Coords.
+    # @param move: List of origin, target tuples of Coords.
     #              (origin, None) for an en passant victim pawn.
     # @return: None. Performs move on board and updates the moves record
     def _move_no_checks(self, move):
@@ -385,7 +387,6 @@ class Board:
                 game_status = BoardStatus.Checkmate
             else:
                 print("Check")
-        # TODO stalemate
         elif not self._legal_move_exists(opponent_color):
             game_status = BoardStatus.Stalemate
             print("Stalemate")

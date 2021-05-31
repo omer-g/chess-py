@@ -174,7 +174,6 @@ class BoardWindow(QtWidgets.QWidget):
         board_layout = QtWidgets.QGridLayout()
         board_layout.setSpacing(0)
         self.board_widget.setLayout(board_layout)
-
         
         positions = [(i, j) for i in range(8) for j in range(8)]
         for i, j in positions:
