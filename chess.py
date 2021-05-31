@@ -499,11 +499,11 @@ def console_promote(board):
 
 if __name__=="__main__":
     board = Board()
-    print("chess-py console\n")
-    print("Move: 'e2 e4'\nRevert last move: 'r'\nExit: '0'\n")
+    print(INTRO)    
+    print("move: 'e2 e4' revert: 'r' exit: '0'\n")
     print(board)
     while True:
-        print("Enter move:")
+        print("enter move:")
         move_input = input()
         if move_input == 'r':
             try:

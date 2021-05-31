@@ -185,9 +185,33 @@ class BoardWindow(QtWidgets.QWidget):
             self.board_squares[i].append(square)
             board_layout.addWidget(square, i, j)
             
+
+        print(INTRO)
+        print("move with double clicks, exit with alt + f4 or cmd + w.\n")
         window_layout.addWidget(self.board_widget)
         self.set_pieces(self.board.get_state())
         self.show()
+
+        # Used to move window by dragging
+        self.offset = None
+
+    # When left button is pressed start to keep track of offset
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.offset = event.pos()
+        else:
+            super().mousePressEvent(event)
+
+    # When mouse moves and left button pressed move to new position
+    def mouseMoveEvent(self, event):
+        if self.offset is not None and event.buttons() == QtCore.Qt.LeftButton:
+            self.move(self.pos() + event.pos() - self.offset)
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self.offset = None
+        super().mouseReleaseEvent(event)
 
     # Sets pieces in GUI according to logic board.
     # @param board_state: a representation of the current logic board state
