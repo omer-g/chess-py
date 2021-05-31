@@ -284,12 +284,12 @@ class Board:
             king.moves_counter > 0 or
             rook.color != color
         ):
-            raise IllegalMoveException("Cannot castle")
+            raise IllegalMoveException("cannot castle")
         # Check king's path for threats
         for i in range(3):
             new_coords = Coords(origin.r, origin.c + i * king_dir)
             if self._coords_under_threat(color, new_coords):
-                raise KingThreatenedException("Cannot castle under threat")
+                raise KingThreatenedException("cannot castle under threat")
 
         # Perform castling
         rook_target = Coords(rook_coords.r, rook_coords.c + rook_delta)
@@ -297,7 +297,7 @@ class Board:
 
     def _revert(self):
         if len(self.moves_record) == 0:
-            raise RevertException("Cannot revert start position")
+            raise RevertException("cannot revert start position")
         prev_move = self.moves_record.pop()
         for record in prev_move:
             square = self._get_square(record.coords)
@@ -327,7 +327,7 @@ class Board:
             king_coords = self._find_king_coords(origin_piece.color)
             if self._coords_under_threat(origin_piece.color, king_coords):
                 self._revert()
-                raise KingThreatenedException("King under threat")
+                raise KingThreatenedException("king under threat")
 
     def _pawn_two_squares(self, origin, target):
         if isinstance(self._get_piece(target), Pawn):
@@ -383,13 +383,13 @@ class Board:
         if self._coords_under_threat(opponent_color, opponent_king):
             game_status = BoardStatus.Check
             if self._check_mate(opponent_color):
-                print("Checkmate")
+                print("checkmate")
                 game_status = BoardStatus.Checkmate
             else:
-                print("Check")
+                print("check")
         elif not self._legal_move_exists(opponent_color):
             game_status = BoardStatus.Stalemate
-            print("Stalemate")
+            print("stalemate")
         return game_status
 
     # @return: Board with (color, piece-type) tuples or (None, None)
@@ -413,7 +413,7 @@ class Board:
     # @return: A MoveReturn with the current board status.
     def promote_pawn(self, piece_type):
         if not self.promotion_coords:
-            raise RuntimeError("Error - no pawn to promote")
+            raise RuntimeError("error - no pawn to promote")
         coords = self.promotion_coords
         self.promotion_coords = None
         piece = self._get_piece(coords)
@@ -427,20 +427,20 @@ class Board:
     # @param target: end coordinate
     def move_piece(self, origin: Coords, target: Coords) -> MoveReturn:
         if self.promotion_coords:
-            raise PromotionWaitException("Choose pawn promotion")
+            raise PromotionWaitException("choose promotion piece")
         if not on_board(origin) or not on_board(target):
-            raise NotOnBoardException("Coordinates not on board")
+            raise NotOnBoardException("coordinates not on board")
         if origin == target:
-            raise SameSquareException("Same square")
+            raise SameSquareException("same square")
         origin_piece = self._get_piece(origin)
         if not origin_piece:
-            raise NoPieceException(f"No piece in {origin}")
+            raise NoPieceException(f"no piece in {origin}")
         if origin_piece.color != Board.player_colors[self.white_turn]:
-            raise WrongTurnException("Not your turn")
+            raise WrongTurnException("not your piece")
 
         target_piece = self._get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
-            raise SameColorException("Same color")
+            raise SameColorException("same color")
         self._update_moves(origin)
 
         do_en_passant = self._check_en_passant(origin, target)
@@ -457,7 +457,7 @@ class Board:
             return MoveReturn(status=game_status,
                               promotion=self.promotion_coords)
         else:
-            raise IllegalMoveException(f"Illegal move: {origin, target}")
+            raise IllegalMoveException(f"illegal move {origin, target}")
 
 ############################ API END ############################
 
@@ -466,7 +466,7 @@ class Board:
 
 def text_to_coords(coords_str):
     if len(coords_str) != 2:
-        raise ValueError(f"Invalid coordinates: {coords_str}")
+        raise ValueError(f"invalid coordinates {coords_str}")
 
     letter_num = {}
     for i, c in enumerate("abcdefgh"):
@@ -475,7 +475,7 @@ def text_to_coords(coords_str):
 
     letter, num = coords_str
     if not letter in letter_num or not num in nums:
-        raise ValueError(f"Invalid coordinates: {coords_str}")
+        raise ValueError(f"invalid coordinates {coords_str}")
 
     r, c = int(num) - 1, letter_num[letter]
     return Coords(r, c)
@@ -484,12 +484,12 @@ def text_to_coords(coords_str):
 def console_promote(board):
     char_to_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
     print(board)
-    print("Choose promotion (Q, R, B, N):")
+    print("choose promotion piece (Q, R, B, N)")
     while True:
         try: 
             choice = input()
             if choice not in list("QRBN"):
-                raise ValueError("Invalid promotion choice, try again:")
+                raise ValueError("invalid choice try again")
             board.promote_pawn(char_to_piece[choice])
         except ValueError as e:
             print(e)
@@ -503,7 +503,7 @@ if __name__=="__main__":
     print("move: 'e2 e4' revert: 'r' exit: '0'\n")
     print(board)
     while True:
-        print("enter move:")
+        print("enter move")
         move_input = input()
         if move_input == 'r':
             try:

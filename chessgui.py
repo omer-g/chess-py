@@ -5,7 +5,7 @@ from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 from functools import partial
-
+from math import sqrt
 
 # Size of window
 WINDOW_DIM = 800
@@ -164,6 +164,7 @@ class BoardWindow(QtWidgets.QWidget):
 
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
+        self.setMinimumSize(WINDOW_DIM-100, WINDOW_DIM-100)
         self.resize(WINDOW_DIM,WINDOW_DIM)        
         self.setStyleSheet(f"BoardWindow {{background-color: {BG};}}")
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
@@ -184,7 +185,6 @@ class BoardWindow(QtWidgets.QWidget):
             square = BoardSquare(self, self.board_widget, square_color, (i, j))
             self.board_squares[i].append(square)
             board_layout.addWidget(square, i, j)
-            
 
         print(INTRO)
         print("move with double clicks, exit with alt + f4 or cmd + w.\n")
@@ -204,8 +204,14 @@ class BoardWindow(QtWidgets.QWidget):
 
     # When mouse moves and left button pressed move to new position
     def mouseMoveEvent(self, event):
-        if self.offset is not None and event.buttons() == QtCore.Qt.LeftButton:
-            self.move(self.pos() + event.pos() - self.offset)
+        if (self.offset is not None and
+            event.buttons() == QtCore.Qt.LeftButton
+        ):
+            # Make drag less sensitive (reduce unintentional repositions)
+            delta = event.pos() - self.offset
+            delta_len = sqrt(delta.x() ** 2 + delta.y() ** 2) 
+            if  delta_len > 15:
+                self.move(self.pos() + delta)
         else:
             super().mouseMoveEvent(event)
 
@@ -253,7 +259,7 @@ class BoardWindow(QtWidgets.QWidget):
                         # This is also called after promotion
                         self.handle_game_status(move_return.status)
         else:
-            print("Game is over")        
+            print("game is over")        
 
 
 if __name__=="__main__":
