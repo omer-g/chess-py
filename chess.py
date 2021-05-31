@@ -343,8 +343,22 @@ class Board:
                 return target
         return None
 
-    def _check_legal_move_exists(color):
-        pass
+    def _legal_move_exists(self, color):
+        self._update_all_moves(color)
+        for row in self.board:
+            for square in row:
+                piece = square.piece
+                if piece and piece.color == color:
+                    for move in piece.moves:
+                        try:
+                            self._perform_move(square.coords, move)
+                        except ValueError as e:
+                            continue
+                        else:
+                            # Legal move found, revert.
+                            self._revert()
+                            return True
+        return False        
 
     def _check_mate(self, king_color):
         # TODO write more efficient version:
@@ -352,23 +366,8 @@ class Board:
             # Check pinned pieces
             # Check if any piece can block or eat
             # Check if king can move
+        return not self._legal_move_exists(king_color)
 
-        self._update_all_moves(king_color)
-        for row in self.board:
-            for square in row:
-                piece = square.piece
-                if piece and piece.color == king_color:
-                    for move in piece.moves:
-                        try:
-                            self._perform_move(square.coords, move)
-                        except ValueError as e:
-                            print(e)
-                            continue
-                        else:
-                            # Legal move found, revert.
-                            self._revert()
-                            return False
-        return True
 
 ########################### API START ###########################
 
@@ -387,6 +386,9 @@ class Board:
             else:
                 print("Check")
         # TODO stalemate
+        elif not self._legal_move_exists(opponent_color):
+            game_status = BoardStatus.Stalemate
+            print("Stalemate")
         return game_status
 
     # @return: Board with (color, piece-type) tuples or (None, None)

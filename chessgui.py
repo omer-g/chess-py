@@ -1,3 +1,4 @@
+from io import BufferedRandom
 from chess import *
 
 from PyQt5 import QtWidgets
@@ -97,10 +98,34 @@ class BoardWindow(QtWidgets.QWidget):
         row, col = coords
         return tuple(self.gui_to_board_coords((row, col)))
 
+    def handle_game_status(self, status):
+        status_msg = {BoardStatus.Stalemate: "Stalemate",
+                      BoardStatus.Checkmate: "Checkmate"
+        }
+        if (status == BoardStatus.Stalemate or status == BoardStatus.Checkmate):
+            # Lock the board
+            self.locked = True
+
+            # TODO refactor this
+            msg = QtWidgets.QDialog(self)
+            msg.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+            msg_layout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.TopToBottom)
+            msg.setStyleSheet(f"QDialog {{background-color: {BG};}}")
+            msg.setLayout(msg_layout)
+            button = QtWidgets.QPushButton(status_msg[status], msg)
+            button.setStyleSheet("QPushButton {border: none};")
+            button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT};}}")
+            button.isFlat = True
+
+            button.clicked.connect(msg.close)
+            msg_layout.addWidget(button)
+            msg.exec()
+
     def call_promote(self, piece_type):
-        self.board.promote_pawn(piece_type)
+        move_return = self.board.promote_pawn(piece_type)
         self.set_pieces(self.board.get_state())
-        
+        self.handle_game_status(move_return.status)
+
     def promote_dialog(self):
         promote_pieces = {
             Knight: "Knight",
@@ -129,11 +154,13 @@ class BoardWindow(QtWidgets.QWidget):
     def __init__(self, white_perspective = True):
         super().__init__()
 
+        # Lock the board if game is stalemate or mate
+        self.locked = False
+
         # Marks if a piece is lifted and if so saves its square.
         self.piece_lifted = False
         self.origin_square = None
         self.white_perspective = white_perspective
-
 
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
@@ -183,21 +210,27 @@ class BoardWindow(QtWidgets.QWidget):
 
     # @param square: a square that was double clicked    
     def handleDoubleClick(self, square):
-        if square.piece and not self.piece_lifted:
-            self.lift_piece(square)
-        elif self.piece_lifted:
-            try:
-                self.piece_lifted = False
-                origin = self.square_to_board_coords(self.origin_square)
-                target = self.square_to_board_coords(square)
-                move_return = self.board.move_piece(origin, target)
-            except Exception as e:
-                print(e)
-                self.origin_square = None
-            else:
-                self.set_pieces(self.board.get_state())
-                if move_return.promotion:
-                    self.promote_dialog()
+        if not self.locked:
+            if square.piece and not self.piece_lifted:
+                self.lift_piece(square)
+            elif self.piece_lifted:
+                try:
+                    self.piece_lifted = False
+                    origin = self.square_to_board_coords(self.origin_square)
+                    target = self.square_to_board_coords(square)
+                    move_return = self.board.move_piece(origin, target)
+                except Exception as e:
+                    print(e)
+                    self.origin_square = None
+                else:
+                    self.set_pieces(self.board.get_state())
+                    if move_return.promotion:
+                        self.promote_dialog()
+                    else:
+                        # This is also called after promotion
+                        self.handle_game_status(move_return.status)
+        else:
+            print("Game is over")        
 
 
 if __name__=="__main__":
