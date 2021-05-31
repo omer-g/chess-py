@@ -343,25 +343,26 @@ class Board:
                 return target
         return None
 
-    def _check_mate(self, king_color):
-        king_coords = self._find_king_coords(king_color)
+    def _check_legal_move_exists(color):
+        pass
 
+    def _check_mate(self, king_color):
         # TODO write more efficient version:
             # Check if double threat
             # Check pinned pieces
             # Check if any piece can block or eat
             # Check if king can move
 
-        # TODO refactor this
         self._update_all_moves(king_color)
         for row in self.board:
             for square in row:
                 piece = square.piece
-                if piece and piece == king_color:
+                if piece and piece.color == king_color:
                     for move in piece.moves:
                         try:
-                            self._perform_move(king_coords, move)
+                            self._perform_move(square.coords, move)
                         except ValueError as e:
+                            print(e)
                             continue
                         else:
                             # Legal move found, revert.
@@ -406,6 +407,7 @@ class Board:
             print(e)
 
     # @param piece_type: The piece type the user chooses
+    # @return: A MoveReturn with the current board status.
     def promote_pawn(self, piece_type):
         if not self.promotion_coords:
             raise RuntimeError("Error - no pawn to promote")
@@ -415,8 +417,8 @@ class Board:
         square = self._get_square(coords)
         color = piece.color
         square.piece = piece_type(color)
-        # TODO return a MoveReturn
         game_status = self.get_status(color)
+        return MoveReturn(game_status, None)
 
     # @param origin: start coordinate of move
     # @param target: end coordinate
