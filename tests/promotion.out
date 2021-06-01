@@ -1,0 +1,143 @@
+
+        ##########################
+        ######## chess-py ########
+        ##########################
+
+                    #
+                   ###
+                  ####
+                 #### ##
+                #### ####
+                 ## ###
+                  ####
+               ##########
+                  ####
+                  ####
+                  ####
+                  ####
+             ##############
+             ##############
+
+move: 'e2 e4' revert: 'r' exit: '0'
+
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|bP|bP|bP|
+6 |  |  |  |  |  |  |  |  |
+5 |  |  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|wP|wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|bP|bP|bP|
+6 |  |  |  |  |  |  |  |  |
+5 |  |  |  |  |  |  |  |  |
+4 |  |  |  |  |wP|  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|  |bP|bP|
+6 |  |  |  |  |  |  |  |  |
+5 |  |  |  |  |  |bP|  |  |
+4 |  |  |  |  |wP|  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|  |bP|bP|
+6 |  |  |  |  |  |  |  |  |
+5 |  |  |  |  |  |wP|  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|  |  |bP|
+6 |  |  |  |  |  |  |bP|  |
+5 |  |  |  |  |  |wP|  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |bP|bP|bP|bP|bP|  |  |bP|
+6 |  |  |  |  |  |  |wP|  |
+5 |  |  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |  |bP|bP|bP|bP|  |  |bP|
+6 |bP|  |  |  |  |  |wP|  |
+5 |  |  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |  |bP|bP|bP|bP|  |  |wP|
+6 |bP|  |  |  |  |  |  |  |
+5 |  |  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |  |bP|bP|bP|bP|  |  |wP|
+6 |  |  |  |  |  |  |  |  |
+5 |bP|  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|wP|bR|
+7 |  |bP|bP|bP|bP|  |  |  |
+6 |  |  |  |  |  |  |  |  |
+5 |bP|  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+choose promotion piece (Q, R, B, N)
+   a  b  c  d  e  f  g  h  
+8 |bR|bN|bB|bQ|bK|bB|wQ|bR|
+7 |  |bP|bP|bP|bP|  |  |  |
+6 |  |  |  |  |  |  |  |  |
+5 |bP|  |  |  |  |  |  |  |
+4 |  |  |  |  |  |  |  |  |
+3 |  |  |  |  |  |  |  |  |
+2 |wP|wP|wP|wP|  |wP|wP|wP|
+1 |wR|wN|wB|wQ|wK|wB|wN|wR|
+
+enter move
