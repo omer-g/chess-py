@@ -78,6 +78,52 @@ class BoardSquare(QtWidgets.QFrame):
 class BoardWindow(QtWidgets.QWidget):
     ''' The game window '''
 
+    # @param white_perspective: direction of board
+    def __init__(self, white_perspective = True):
+        super().__init__()
+
+        # Lock the board if game is stalemate or mate
+        self.locked = False
+
+        # Marks if a piece is lifted and if so saves its square.
+        self.piece_lifted = False
+        self.origin_square = None
+        self.white_perspective = white_perspective
+
+        window_layout = QtWidgets.QGridLayout()
+        self.setLayout(window_layout)
+        self.setMinimumSize(WINDOW_DIM-100, WINDOW_DIM-100)
+        self.resize(WINDOW_DIM,WINDOW_DIM)        
+        self.setStyleSheet(f"BoardWindow {{background-color: {BG};}}")
+        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+        
+        self.board = Board()
+        self.board_widget = QtWidgets.QFrame(self)
+        self.board_squares = [[] for i in range(8)]
+        board_layout = QtWidgets.QGridLayout()
+        board_layout.setSpacing(0)
+        self.board_widget.setLayout(board_layout)
+        
+        positions = [(i, j) for i in range(8) for j in range(8)]
+        for i, j in positions:
+            r, c = self.gui_to_board_coords((i, j))
+
+            # Square color based on logic board coordinates
+            square_color = DARK if (r + c) % 2 == 1 else BRIGHT
+            square = BoardSquare(self, self.board_widget, square_color, (i, j))
+            self.board_squares[i].append(square)
+            board_layout.addWidget(square, i, j)
+
+        print(INTRO)
+        print("revert: r")
+        print("exit: alt + f4 or cmd + w")
+        window_layout.addWidget(self.board_widget)
+        self.set_pieces(self.board.get_state())
+        self.show()
+
+        # Used to move window by dragging
+        self.offset = None
+
     # @param coords: a tuple of gui board coordinates
     # @return: coordinates on logic board as Coords.
     def gui_to_board_coords(self, coords):
@@ -150,50 +196,11 @@ class BoardWindow(QtWidgets.QWidget):
             dialog_layout.addWidget(button)
         dialog.exec()
 
-    # @param white_perspective: direction of board
-    def __init__(self, white_perspective = True):
-        super().__init__()
-
-        # Lock the board if game is stalemate or mate
-        self.locked = False
-
-        # Marks if a piece is lifted and if so saves its square.
-        self.piece_lifted = False
-        self.origin_square = None
-        self.white_perspective = white_perspective
-
-        window_layout = QtWidgets.QGridLayout()
-        self.setLayout(window_layout)
-        self.setMinimumSize(WINDOW_DIM-100, WINDOW_DIM-100)
-        self.resize(WINDOW_DIM,WINDOW_DIM)        
-        self.setStyleSheet(f"BoardWindow {{background-color: {BG};}}")
-        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
-        
-        self.board = Board()
-        self.board_widget = QtWidgets.QFrame(self)
-        self.board_squares = [[] for i in range(8)]
-        board_layout = QtWidgets.QGridLayout()
-        board_layout.setSpacing(0)
-        self.board_widget.setLayout(board_layout)
-        
-        positions = [(i, j) for i in range(8) for j in range(8)]
-        for i, j in positions:
-            r, c = self.gui_to_board_coords((i, j))
-
-            # Square color based on logic board coordinates
-            square_color = DARK if (r + c) % 2 == 1 else BRIGHT
-            square = BoardSquare(self, self.board_widget, square_color, (i, j))
-            self.board_squares[i].append(square)
-            board_layout.addWidget(square, i, j)
-
-        print(INTRO)
-        print("move with double clicks, exit with alt + f4 or cmd + w.\n")
-        window_layout.addWidget(self.board_widget)
-        self.set_pieces(self.board.get_state())
-        self.show()
-
-        # Used to move window by dragging
-        self.offset = None
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        if event.key() == QtCore.Qt.Key_R:
+            self.board.revert_last_move()
+            self.set_pieces(self.board.get_state())
+        return super().keyPressEvent(event)
 
     # When left button is pressed start to keep track of offset
     def mousePressEvent(self, event):

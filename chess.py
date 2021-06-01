@@ -150,7 +150,8 @@ class Board:
         # Check if castling physically could be possible.
         # Does not check if king threatened.
         # TODO refactor (separate to functions)
-        if self._get_piece(origin).moves_counter == 0:
+        piece = self._get_piece(origin)
+        if piece.moves_counter == 0:
             king_dirs, r_positions = (-1, 1), (0, DIM_ZERO)
             for king_dir, rook_pos in zip(king_dirs, r_positions):
                 castle_allowed = True
@@ -310,7 +311,6 @@ class Board:
     # @param origin, target: coordinates of a quasi-legal move
     # @param passant_victim: coordinates of en passant victim
     def _perform_move(self, origin, target, passant_coords = None):
-
         origin_piece = self._get_piece(origin)
         move = [(origin, target)]
 
@@ -442,7 +442,6 @@ class Board:
         if target_piece and target_piece.color == origin_piece.color:
             raise SameColorException("same color")
         self._update_moves(origin)
-
         do_en_passant = self._check_en_passant(origin, target)
         if target in origin_piece.moves or do_en_passant:
             if do_en_passant:
@@ -520,7 +519,9 @@ if __name__=="__main__":
             move = board.move_piece(text_to_coords(start), text_to_coords(end))
             if move.promotion:
                 console_promote(board)
-            if move.status == BoardStatus.Checkmate:
+            if (move.status == BoardStatus.Checkmate or
+                move.status == BoardStatus.Stalemate
+            ):
                 break
         except ValueError as e:
             print(e)
