@@ -282,6 +282,21 @@ class Board:
                 return True
         return False
 
+    def _save_coords(self, coords, piece):
+        if piece:
+            coords_list = self.pieces[(type(piece), piece.color)]
+            coords_list.append(coords)
+
+    def _remove_coords(self, coords, piece):
+        if piece:
+            try:
+                coords_list = self.pieces[(type(piece), piece.color)]
+                coords_list.remove(coords)
+            except ValueError as e:
+                print("attempt to remove coords not in pieces", coords, piece)
+                print(e)            
+
+
     # @param move: List of origin, target tuples of Coords.
     #              (origin, None) for an en passant victim pawn.
     # @return: None. Performs move on board and updates the moves record
@@ -293,15 +308,22 @@ class Board:
             if target:
                 origin_square = self._get_square(origin)
                 move_record.append(Record(origin, origin_square.piece))
+                self._remove_coords(origin, origin_square.piece)
+                
                 target_square = self._get_square(target)
                 move_record.append(Record(target, target_square.piece))
+                self._remove_coords(target, target_square.piece)
+
                 target_square.piece = origin_square.piece
                 target_square.piece.moves_counter += 1
+
+                self._save_coords(target, target_square.piece)
                 origin_square.piece = None
             else:
                 # This is the en passant victim pawn
                 origin_square = self._get_square(origin)
                 move_record.append(Record(origin, origin_square.piece))
+                self._remove_coords(origin, origin_square.piece)
                 origin_square.piece = None
         self.moves_record.append(move_record)
 
@@ -334,9 +356,11 @@ class Board:
         prev_move = self.moves_record.pop()
         for record in prev_move:
             square = self._get_square(record.coords)
+            self._remove_coords(record.coords, square.piece)
             if record.piece_type:
                 square.piece = record.piece_type(record.color,
                                                  record.moves_counter)
+                self._save_coords(record.coords, square.piece)
             else:
                 square.piece = None
 
@@ -389,7 +413,7 @@ class Board:
                         except ValueError as e:
                             continue
                         else:
-                            # Legal move found, revert.
+                            # Legal move found - revert it.
                             self._revert()
                             return True
         return False        
