@@ -1,11 +1,9 @@
-from io import BufferedRandom
 from chess import *
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 from functools import partial
-from math import sqrt
 
 # Size of window
 WINDOW_DIM = 800
@@ -216,8 +214,8 @@ class BoardWindow(QtWidgets.QWidget):
         ):
             # Make drag less sensitive (reduce unintentional repositions)
             delta = event.pos() - self.offset
-            delta_len = sqrt(delta.x() ** 2 + delta.y() ** 2) 
-            if  delta_len > 15:
+            delta_len = delta.x() ** 2 + delta.y() ** 2
+            if  delta_len > 15 ** 2:
                 self.move(self.pos() + delta)
         else:
             super().mouseMoveEvent(event)

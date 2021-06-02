@@ -22,6 +22,8 @@ INTRO = '''
              ##############
 '''
 
+# Starting position in FEN format
+START_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 
 # Board dimensions
 DIM = 8
