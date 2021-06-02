@@ -7,23 +7,29 @@ from collections import deque
 # Search "API START" for interface functions
 
 class Board:
+    pieces_list = [Pawn, Rook, Knight, Bishop, Queen, King]
     player_colors = { True: Colors.White, False: Colors.Black }
 
     # @param white_turn: Whose turn is it
-    # @param state: a table of (Colors, Piece) tuples
-    def __init__(self, white_turn = True, state = None):
+    # @param fen_position: a board position in FEN format
+    def __init__(self, white_turn = True, position = None):
         self.white_turn = white_turn
         self.en_passant_pawn = None
         self.promotion_coords = None
         self.moves_record = deque()
 
+        # Store coordinates for each piece type 
+        self.pieces = dict(((piece_type, self.player_colors[key]), [])
+                for piece_type in self.pieces_list
+                for key in self.player_colors
+        )
         board = [[] for i in range(DIM)]
         for r in range(len(board)):
             board[r] = tuple([Square(Coords(r, c)) for c in range(DIM)])
 
         self.board = tuple([tuple([sq for sq in row]) for row in board])
-        # TODO set pieces according to state input
-        self._place_pieces()
+        self.start_position = position if position else START_POSITION
+        self._set_pieces(self.start_position)
 
     def __str__(self):
         cols = "abcdefgh"
@@ -39,34 +45,60 @@ class Board:
             output_str += row_str
         return output_str
 
+    def _clear_board(self):
+        for row in self.board:
+            for square in row:
+                piece = square.piece
+                coords = square.coords
+                if piece:
+                    # TODO finish adding pieces dict updates throughout
+                    self.pieces[(type(piece), piece.color)].remove(coords)
+                    square.piece = None
+
+    def _set_piece(self, coords, piece):
+        self.board[coords[0]][coords[1]].piece = piece
+        self.pieces[(type(piece), piece.color)].append(coords) 
+
+    # TODO process a complete FEN record
+    # @param board_str: A FEN-format piece placement string (first field only)
+    def _set_pieces(self, board_str):
+        self._clear_board()
+        # Black ranks first
+        position = [DIM_ZERO, 0]
+        char_to_piece = {
+            "P": Pawn,
+            "R": Rook,
+            "N": Knight,
+            "B": Bishop,
+            "Q": Queen,
+            "K": King
+        }
+        for c in board_str:
+            # Create piece and place on board
+            if c.upper() in char_to_piece:
+                color = Colors.White if c.isupper() else Colors.Black
+                piece = char_to_piece[c.upper()](color)
+                coords = Coords(position[0], position[1])
+
+                self._set_piece(coords, piece)
+                position[1] = (position[1] + 1) % DIM
+            # Skip empty squares in rank
+            if c in "12345678":
+                empty_squares = int(c)
+                position[1] = (position[1] + empty_squares) % DIM
+            # Next rank
+            if c == "/":
+                position[0] -= 1
+            # In order to be able to read a full FEN record - change later
+            if c ==" ":
+                break
+
     def _get_square(self, coords) -> Square:
         return self.board[coords[0]][coords[1]]
     
     def _get_piece(self, coords):
         return self.board[coords[0]][coords[1]].piece        
 
-    def _clear_board(self):
-        for row in self.board:
-            for square in row:
-                square.piece = None
-
-    # Place pieces on board at beginning of game.
-    def _place_pieces(self):
-        # Clear all pieces
-        self._clear_board()
-        for color in [Colors.White, Colors.Black]:
-            row = 1 if color == Colors.White else DIM_ZERO - 1
-            for i in range(DIM):
-                self.board[row][i].piece = Pawn(color)
-
-            place = {Rook: 0, Knight: 1, Bishop: 2}
-            row = 0 if color == Colors.White else DIM_ZERO
-            for piece in place:
-                self.board[row][0 + place[piece]].piece = piece(color)
-                self.board[row][DIM_ZERO - place[piece]].piece = piece(color)
-            self.board[row][4].piece = King(color)
-            self.board[row][3].piece = Queen(color)
- 
     # @param coords: The target coordinate where eating could occur
     # @param attacker_color: The color of the attack piece
     # @return: True if there is a piece that can be eaten on the square.
@@ -481,7 +513,7 @@ def text_to_coords(coords_str):
 
 
 def console_promote(board):
-    char_to_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
+    char_to_promote_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
     print(board)
     print("choose promotion piece (Q, R, B, N)")
     while True:
@@ -489,7 +521,7 @@ def console_promote(board):
             choice = input()
             if choice not in list("QRBN"):
                 raise ValueError("invalid choice try again")
-            board.promote_pawn(char_to_piece[choice])
+            board.promote_pawn(char_to_promote_piece[choice])
         except ValueError as e:
             print(e)
         else:
