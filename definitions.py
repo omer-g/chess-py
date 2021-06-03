@@ -138,6 +138,8 @@ class Record:
                                    self.color,
                                    self.moves_counter]))
         )
+    
+    __repr__ = __str__
 
 if __name__=="__main__":
     print(Record(Coords(1,2), Pawn(Colors.Black)))

@@ -3,31 +3,34 @@ from definitions import *
 from exceptions import *
 from functools import partial
 from collections import deque
+import sys
 
 # Search "API START" for interface functions
 
 class Board:
-    pieces_list = [Pawn, Rook, Knight, Bishop, Queen, King]
+    piece_types = [Pawn, Rook, Knight, Bishop, Queen, King]
     player_colors = { True: Colors.White, False: Colors.Black }
 
     # @param white_turn: Whose turn is it
     # @param fen_position: a board position in FEN format
     def __init__(self, white_turn = True, position = None):
         self.white_turn = white_turn
-        self.en_passant_pawn = None
+        self.passant_pawn = None
         self.promotion_coords = None
         self.moves_record = deque()
+        self.game_status = BoardStatus.Normal
 
         # Store coordinates for each piece type 
-        self.pieces = dict(((piece_type, self.player_colors[key]), [])
-                for piece_type in self.pieces_list
-                for key in self.player_colors
-        )
-        board = [[] for i in range(DIM)]
-        for r in range(len(board)):
-            board[r] = tuple([Square(Coords(r, c)) for c in range(DIM)])
+        self.white_pieces = dict((piece, set()) for piece in self.piece_types)
+        self.black_pieces = dict((piece, set()) for piece in self.piece_types)
+        self.pieces = {Colors.White: self.white_pieces,
+                       Colors.Black: self.black_pieces
+        }
 
-        self.board = tuple([tuple([sq for sq in row]) for row in board])
+        # Set board
+        self.board = tuple([tuple([Square(Coords(r, c))
+                            for c in range(DIM)]) for r in range(DIM)]
+        )
         self.start_position = position if position else START_POSITION
         self._set_pieces(self.start_position)
 
@@ -51,13 +54,12 @@ class Board:
                 piece = square.piece
                 coords = square.coords
                 if piece:
-                    # TODO finish adding pieces dict updates throughout
-                    self.pieces[(type(piece), piece.color)].remove(coords)
+                    self.pieces[piece.color][type(piece)].remove(coords)
                     square.piece = None
 
     def _set_piece(self, coords, piece):
         self.board[coords[0]][coords[1]].piece = piece
-        self.pieces[(type(piece), piece.color)].append(coords) 
+        self.pieces[piece.color][type(piece)].add(coords)
 
     # TODO process a complete FEN record
     # @param board_str: A FEN-format piece placement string (first field only)
@@ -270,11 +272,11 @@ class Board:
         origin_piece = self._get_piece(origin)
         target_piece = self._get_piece(target)
         forward = 1 if origin_piece.color == Colors.White else -1
-        if self.en_passant_pawn:
+        if self.passant_pawn:
             if (
-                origin[0] == self.en_passant_pawn[0] and
+                origin[0] == self.passant_pawn[0] and
                 origin[0] + forward == target[0] and
-                target[1] == self.en_passant_pawn[1] and
+                target[1] == self.passant_pawn[1] and
                 abs(target[1] - origin[1]) == 1 and
                 isinstance(origin_piece, Pawn) and
                 not target_piece
@@ -284,17 +286,18 @@ class Board:
 
     def _save_coords(self, coords, piece):
         if piece:
-            coords_list = self.pieces[(type(piece), piece.color)]
-            coords_list.append(coords)
+            coords_list = self.pieces[piece.color][type(piece)]
+            coords_list.add(coords)
 
     def _remove_coords(self, coords, piece):
         if piece:
             try:
-                coords_list = self.pieces[(type(piece), piece.color)]
+                coords_list = self.pieces[piece.color][type(piece)]
                 coords_list.remove(coords)
-            except ValueError as e:
+            # TODO change back to ValueError?
+            except Exception as e:
                 print("attempt to remove coords not in pieces", coords, piece)
-                print(e)            
+                print(type(e).__name__, e)
 
 
     # @param move: List of origin, target tuples of Coords.
@@ -302,16 +305,16 @@ class Board:
     # @return: None. Performs move on board and updates the moves record
     def _move_no_checks(self, move):
         move_steps = move
-        move_record = []
+        move_record = (self.passant_pawn, self.promotion_coords, [])
         for step in move_steps:
             origin, target = step
             if target:
                 origin_square = self._get_square(origin)
-                move_record.append(Record(origin, origin_square.piece))
+                move_record[2].append(Record(origin, origin_square.piece))
                 self._remove_coords(origin, origin_square.piece)
                 
                 target_square = self._get_square(target)
-                move_record.append(Record(target, target_square.piece))
+                move_record[2].append(Record(target, target_square.piece))
                 self._remove_coords(target, target_square.piece)
 
                 target_square.piece = origin_square.piece
@@ -322,7 +325,7 @@ class Board:
             else:
                 # This is the en passant victim pawn
                 origin_square = self._get_square(origin)
-                move_record.append(Record(origin, origin_square.piece))
+                move_record[2].append(Record(origin, origin_square.piece))
                 self._remove_coords(origin, origin_square.piece)
                 origin_square.piece = None
         self.moves_record.append(move_record)
@@ -351,9 +354,10 @@ class Board:
         self._move_no_checks([(origin, target), (rook_coords, rook_target)])
 
     def _revert(self):
+        # TODO store all state inforation in Record (en passant status etc)
         if len(self.moves_record) == 0:
             raise RevertException("cannot revert start position")
-        prev_move = self.moves_record.pop()
+        self.passant_pawn, self.promotion_coords, prev_move = self.moves_record.pop()
         for record in prev_move:
             square = self._get_square(record.coords)
             self._remove_coords(record.coords, square.piece)
@@ -426,27 +430,84 @@ class Board:
             # Check if king can move
         return not self._legal_move_exists(king_color)
 
+    # TODO this might be redundant if threats are checked anyway
+    # @param coords: Coordinates of king
+    # @param king_color: Color of king
+    # @return: lists of pieces that threaten king
+    #          and pinned pieces with (Coords, Piece) tuples
+    def _check_king_threats(self, coords: Coords, king_color: Colors):
+        piece_dir = {
+            Rook: HORIZONTAL_VERTICAL,
+            Bishop: DIAGONAL,
+            Queen: ALL_DIRECTIONS                    
+        }
+        # Tuples of (coords, piece)
+        pinned_pieces = []
+        threats = []
+
+        # Check long distance threats and pins
+        for dir in ALL_DIRECTIONS:
+            potential_pin = None
+            for i in range(1, DIM):
+                new_coords = Coords(coords.r + dir[0] * i, coords.c + dir[1])
+                if not on_board(new_coords):
+                    break
+                piece = self._get_piece(new_coords)
+                if piece:
+                    if piece.color == king_color:
+                        potential_pin = (new_coords, piece)
+                    if (piece.color == king_color.other_color() and
+                        type(piece) in piece_dir and
+                        dir in piece_dir[type(piece)]  
+                    ):
+                        if potential_pin:
+                            pinned_pieces.append(potential_pin)
+                        else:
+                            threats.append((new_coords, piece))
+                        break
+        # Check knight threats
+        for delta in KNIGHT:
+            new_coords = Coords(coords.r + delta[0], coords.c + delta[1])
+            if on_board(new_coords):
+                piece = self._get_piece(new_coords)
+                if type(piece) is Knight:
+                    threats.append((new_coords, piece))
+        # Check pawn threat
+        direction = 1 if king_color == Colors.White else -1
+        left_right = [-1, 1]
+        for horizontal_dir in left_right:
+            new_coords = (coords.r + direction, coords.c + horizontal_dir)
+            if on_board(new_coords):
+                piece = self._get_piece(new_coords)
+                if (type(piece) is Pawn and
+                    piece.color == king_color.other_color()
+                ):
+                    threats.append((new_coords, piece))
+        
+        return threats, pinned_pieces
+
+
 
 ########################### API START ###########################
 
     # @param color: current player
     # @return: status of game (check, checkmate, stalemate)
-    def get_status(self, color):
+    def update_status(self, color):
         opponent_color = color.other_color()
         opponent_king = self._find_king_coords(opponent_color)
 
-        game_status = BoardStatus.Normal
+        self.game_status = BoardStatus.Normal
         if self._coords_under_threat(opponent_color, opponent_king):
-            game_status = BoardStatus.Check
+            self.game_status = BoardStatus.Check
             if self._check_mate(opponent_color):
                 print("checkmate")
-                game_status = BoardStatus.Checkmate
+                self.game_status = BoardStatus.Checkmate
             else:
                 print("check")
         elif not self._legal_move_exists(opponent_color):
-            game_status = BoardStatus.Stalemate
+            self.game_status = BoardStatus.Stalemate
             print("stalemate")
-        return game_status
+        return self.game_status
 
     # @return: Board with (color, piece-type) tuples or (None, None)
     def get_state(self):
@@ -470,13 +531,17 @@ class Board:
     def promote_pawn(self, piece_type):
         if not self.promotion_coords:
             raise RuntimeError("error - no pawn to promote")
+        # TODO Record missing
         coords = self.promotion_coords
         self.promotion_coords = None
         piece = self._get_piece(coords)
         square = self._get_square(coords)
         color = piece.color
+        # TODO remove pawn from coords dict and then place piece
+        self._remove_coords(coords, piece)
         square.piece = piece_type(color)
-        game_status = self.get_status(color)
+        self._save_coords(coords, square.piece)
+        game_status = self.update_status(color)
         return MoveReturn(game_status, None)
 
     # @param origin: start coordinate of move
@@ -501,14 +566,14 @@ class Board:
         do_en_passant = self._check_en_passant(origin, target)
         if target in origin_piece.moves or do_en_passant:
             if do_en_passant:
-                self._perform_move(origin, target, self.en_passant_pawn)
+                self._perform_move(origin, target, self.passant_pawn)
             else:
                 self._perform_move(origin, target)
             # If pawn double-traveled en passant may be possible next move
-            self.en_passant_pawn = self._pawn_two_squares(origin, target)
+            self.passant_pawn = self._pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
             self.promotion_coords = self._check_promotion(target)
-            game_status = self.get_status(origin_piece.color)
+            game_status = self.update_status(origin_piece.color)
             return MoveReturn(status=game_status,
                               promotion=self.promotion_coords)
         else:
@@ -536,13 +601,13 @@ def text_to_coords(coords_str):
     return Coords(r, c)
 
 
-def console_promote(board):
+def console_promote(board, file_moves):
     char_to_promote_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
     print(board)
     print("choose promotion piece (Q, R, B, N)")
     while True:
         try: 
-            choice = input()
+            choice = file_moves.pop(0) if len(file_moves) > 0 else input()
             if choice not in list("QRBN"):
                 raise ValueError("invalid choice try again")
             board.promote_pawn(char_to_promote_piece[choice])
@@ -557,9 +622,15 @@ if __name__=="__main__":
     print(INTRO)    
     print("move: 'e2 e4' revert: 'r' exit: '0'\n")
     print(board)
+
+    file_moves = []
+    if len(sys.argv) == 2:
+        with open(sys.argv[1]) as f:
+            for line in f:
+                file_moves.append(line.strip())
     while True:
         print("enter move")
-        move_input = input()
+        move_input = file_moves.pop(0) if len(file_moves) > 0 else input()
         if move_input == 'r':
             try:
                 board.revert_last_move()
@@ -574,7 +645,7 @@ if __name__=="__main__":
             start, end = move_input.split(" ")
             move = board.move_piece(text_to_coords(start), text_to_coords(end))
             if move.promotion:
-                console_promote(board)
+                console_promote(board, file_moves)
             if (move.status == BoardStatus.Checkmate or
                 move.status == BoardStatus.Stalemate
             ):
