@@ -53,7 +53,6 @@ class Colors(Enum):
     def __str__(self):
         return "black" if self == Colors.Black else "white"
 
-MoveReturn = namedtuple("MoveReturn", "status, promotion")
 
 # Named tuple of coordinates
 Coords = namedtuple("Coords", "r, c")

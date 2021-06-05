@@ -16,7 +16,6 @@ class Board:
     def __init__(self, white_turn = True, position = None):
         self.white_turn = white_turn
         self.passant_pawn = None
-        self.promotion_coords = None
         self.moves_record = deque()
         self.game_status = BoardStatus.Normal
 
@@ -319,16 +318,16 @@ class Board:
     # @return: None. Performs move on board and updates the moves record
     def _move_no_checks(self, move, promote_type = None):
         move_steps = move
-        move_record = (self.passant_pawn, self.promotion_coords, [])
+        move_record = (self.passant_pawn, [])
         for step in move_steps:
             origin, target = step
             if target:
                 origin_square = self._get_square(origin)
-                move_record[2].append(Record(origin, origin_square.piece))
+                move_record[1].append(Record(origin, origin_square.piece))
                 self._remove_coords(origin, origin_square.piece)
                 
                 target_square = self._get_square(target)
-                move_record[2].append(Record(target, target_square.piece))
+                move_record[1].append(Record(target, target_square.piece))
                 self._remove_coords(target, target_square.piece)
 
                 if promote_type == None:
@@ -341,7 +340,7 @@ class Board:
             else:
                 # This is the en passant victim pawn
                 origin_square = self._get_square(origin)
-                move_record[2].append(Record(origin, origin_square.piece))
+                move_record[1].append(Record(origin, origin_square.piece))
                 self._remove_coords(origin, origin_square.piece)
                 origin_square.piece = None
         self.moves_record.append(move_record)
@@ -370,12 +369,10 @@ class Board:
         self._move_no_checks([(origin, target), (rook_coords, rook_target)])
 
     def _revert(self):
-        # TODO store all state inforation in Record (en passant status etc)
         if len(self.moves_record) == 0:
             raise RevertException("cannot revert start position")
-        passant_pawn, promotion_coords, prev_move = self.moves_record.pop()
+        passant_pawn, prev_move = self.moves_record.pop()
         self.passant_pawn = passant_pawn
-        self.promotion_coords = promotion_coords
         for record in prev_move:
             square = self._get_square(record.coords)
             self._remove_coords(record.coords, square.piece)
@@ -414,13 +411,14 @@ class Board:
                 return target
         return None
 
-    def _check_promotion(self, target: Coords, piece) -> Union[Coords, None]:
+    def _check_promotion(self, origin: Coords, target: Coords, piece) -> Union[Coords, None]:
         # TODO add origin too
+        legal_promotion = {
+            Colors.White: (DIM_ZERO - 1, DIM_ZERO),
+            Colors.Black: (1, 0)
+        }
         if isinstance(piece, Pawn):
-            if (
-                piece.color == Colors.White and target.r == DIM_ZERO or
-                piece.color == Colors.Black and target.r == 0
-            ):
+            if (origin.r, target.r) == legal_promotion[piece.color]:
                 return target
         return None
 
@@ -552,29 +550,10 @@ class Board:
         except Exception as e:
             print(e)
 
-    # TODO remove this
-    # @param piece_type: The piece type the user chooses
-    # @return: A MoveReturn with the current board status.
-    def promote_pawn(self, piece_type):
-        if not self.promotion_coords:
-            raise RuntimeError("error - no pawn to promote")
-        # TODO Record missing
-        coords = self.promotion_coords
-        self.promotion_coords = None
-        piece = self._get_piece(coords)
-        square = self._get_square(coords)
-        color = piece.color
-        # TODO remove pawn from coords dict and then place piece
-        self._remove_coords(coords, piece)
-        square.piece = piece_type(color)
-        self._save_coords(coords, square.piece)
-        game_status = self.update_status(color)
-        return MoveReturn(game_status, None)
-
     # @param origin: start coordinate of move
     # @param target: end coordinate
     # @param promotion: type of promotion piece or None
-    def move_piece(self, origin, target, promotion) -> MoveReturn:
+    def move_piece(self, origin, target, promotion) -> BoardStatus:
         if not on_board(origin) or not on_board(target):
             raise NotOnBoardException("coordinates not on board")
         if origin == target:
@@ -588,14 +567,13 @@ class Board:
         target_piece = self._get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
             raise SameColorException("same color")
-        
-        if self._check_promotion(target, origin_piece):
-            if promotion not in PROMOTE:
-                raise MissingPromotionChoice("retry move with promotion choice")
 
         self._update_moves(origin)
         do_en_passant = self._check_en_passant(origin, target)
         if (any(target in move for move in origin_piece.moves)) or do_en_passant:
+            if self._check_promotion(origin, target, origin_piece):
+                if promotion not in PROMOTE:
+                    raise MissingPromotionChoice("retry move with promotion choice")
             if do_en_passant:
                 self._perform_move(origin, (target, promotion), passant_coords=self.passant_pawn)
             else:
@@ -604,7 +582,6 @@ class Board:
             self.passant_pawn = self._pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
             target_piece = self._get_piece(target)
-            self.promotion_coords = self._check_promotion(target, target_piece)
             game_status = self.update_status(origin_piece.color)
             return game_status
         else:
