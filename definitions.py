@@ -35,6 +35,7 @@ HORIZONTAL_VERTICAL = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 ALL_DIRECTIONS = DIAGONAL + HORIZONTAL_VERTICAL
 KNIGHT = [(1, 2), (-1, 2), (-1, -2), (1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
 
+
 class BoardStatus(Enum):
     Normal = auto(),
     Check = auto(),
@@ -141,6 +142,12 @@ class Record:
     
     __repr__ = __str__
 
+
+PROMOTE = [Queen, Rook, Bishop, Knight]
+CHAR_PROMOTE = dict([(c, piece) for (c, piece) in zip("QRBN", PROMOTE)])
+
+
 if __name__=="__main__":
     print(Record(Coords(1,2), Pawn(Colors.Black)))
     print(Record(Coords(1,2), None))
+    print(CHAR_PROMOTE)

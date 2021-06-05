@@ -20,7 +20,7 @@ class IllegalMoveException(ValueError):
 class KingThreatenedException(ValueError):
     pass
 
-class PromotionWaitException(ValueError):
+class MissingPromotionChoice(ValueError):
     pass
 
 class RevertException(IndexError):

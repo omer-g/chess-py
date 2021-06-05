@@ -119,22 +119,27 @@ class Board:
         threatens = set()       # Squares threatened by piece
         for direction in directions:
             for i in range(1, DIM):
-                square = Coords(coords[0] + direction[0] * i,
+                coords = Coords(coords[0] + direction[0] * i,
                                     coords[1] + direction[1] * i)               
-                if not on_board(square):
+                if not on_board(coords):
                     break         
                 # Check if not empty
-                piece = self._get_piece(square)
+                piece = self._get_piece(coords)
                 if piece:
                     # Check if there's piece that can be eaten
-                    if self._eatable(square, color):
-                        moves.add(square)
-                    threatens.add(square)
+                    if self._eatable(coords, color):
+                        moves.add((coords, None))
+                    threatens.add(coords)
                     break
                 else:
-                    moves.add(square)
-                    threatens.add(square)
+                    moves.add((coords, None))
+                    threatens.add(coords)
         return moves, threatens
+
+    def final_row(self, row, color: Colors):
+        return ((color == Colors.White and row == DIM_ZERO) or
+                (color == Colors.Black and row == 0)
+        )
 
     def _pawn_direction(self, color):
         return 1 if color == Colors.White else -1
@@ -147,26 +152,35 @@ class Board:
         vertical = self._pawn_direction(color)
         moves, threatens = set(), set()
         
+        promote = self.final_row(coords.r + 1 * vertical, color)
         # Forward movement
         steps = 1
         if ((coords.r == 1 and color == Colors.White) or
             (coords.r == DIM_ZERO - 1 and color == Colors.Black)):
            steps = 2
         for i in range(1, steps + 1):
-            new_square = Coords((coords.r + i * vertical), coords.c)
-            if not on_board(new_square) or self._get_piece(new_square):
+            new_coords = Coords((coords.r + i * vertical), coords.c)
+            if not on_board(new_coords) or self._get_piece(new_coords):
                 break
-            moves.add(new_square)
+            if promote:
+                for promote_type in PROMOTE:
+                    moves.add((new_coords, promote_type))
+            else:
+                moves.add((new_coords, None))
 
         # Pawn attack moves (except en passant)
         horizontal_directions = [-1, 1]
         for horizontal_direction in horizontal_directions:
-            new_square = Coords((coords.r + 1 * vertical),
+            new_coords = Coords((coords.r + 1 * vertical),
                     (coords.c + horizontal_direction))
-            if on_board(new_square):
-                if self._eatable(new_square, color):
-                    moves.add(new_square)
-                threatens.add(new_square)
+            if on_board(new_coords):
+                if self._eatable(new_coords, color):
+                    if promote:
+                        for promote_type in PROMOTE:
+                            moves.add((new_coords, promote_type))
+                    else:
+                        moves.add((new_coords, None))
+                threatens.add(new_coords)
         return moves, threatens
 
     def _king_moves(self, origin, color):
@@ -179,7 +193,7 @@ class Board:
             threatens.add(new_coords)
             target_piece = self._get_piece(new_coords)
             if not target_piece or target_piece.color != color:
-                moves.add(new_coords)
+                moves.add((new_coords, None))
         
         # Check if castling physically could be possible.
         # Does not check if king threatened.
@@ -204,7 +218,7 @@ class Board:
                     if castle_allowed:
                         # Calculate target square of king
                         target = Coords(origin[0], origin[1] + 2 * king_dir)
-                        moves.add(target)
+                        moves.add((target, None))
         return moves, threatens
 
     # @param origin: starting coordinates of knight
@@ -221,7 +235,7 @@ class Board:
                     not self._get_piece(target) or
                     self._get_piece(target).color != color
                 ):
-                    moves.add(target)
+                    moves.add((target, None))
         return moves, threatens
 
     # @param coords: coordinates of a square with a piece on it
@@ -303,7 +317,7 @@ class Board:
     # @param move: List of origin, target tuples of Coords.
     #              (origin, None) for an en passant victim pawn.
     # @return: None. Performs move on board and updates the moves record
-    def _move_no_checks(self, move):
+    def _move_no_checks(self, move, promote_type = None):
         move_steps = move
         move_record = (self.passant_pawn, self.promotion_coords, [])
         for step in move_steps:
@@ -317,9 +331,11 @@ class Board:
                 move_record[2].append(Record(target, target_square.piece))
                 self._remove_coords(target, target_square.piece)
 
-                target_square.piece = origin_square.piece
-                target_square.piece.moves_counter += 1
-
+                if promote_type == None:
+                    target_square.piece = origin_square.piece
+                    target_square.piece.moves_counter += 1
+                else:
+                    target_square.piece = promote_type(origin_square.piece.color)
                 self._save_coords(target, target_square.piece)
                 origin_square.piece = None
             else:
@@ -357,7 +373,9 @@ class Board:
         # TODO store all state inforation in Record (en passant status etc)
         if len(self.moves_record) == 0:
             raise RevertException("cannot revert start position")
-        self.passant_pawn, self.promotion_coords, prev_move = self.moves_record.pop()
+        passant_pawn, promotion_coords, prev_move = self.moves_record.pop()
+        self.passant_pawn = passant_pawn
+        self.promotion_coords = promotion_coords
         for record in prev_move:
             square = self._get_square(record.coords)
             self._remove_coords(record.coords, square.piece)
@@ -370,7 +388,8 @@ class Board:
 
     # @param origin, target: coordinates of a quasi-legal move
     # @param passant_victim: coordinates of en passant victim
-    def _perform_move(self, origin, target, passant_coords = None):
+    def _perform_move(self, origin, target_tuple, passant_coords = None):
+        target, promote_type = target_tuple
         origin_piece = self._get_piece(origin)
         move = [(origin, target)]
 
@@ -382,7 +401,7 @@ class Board:
             # En passant
             if passant_coords:
                 move.append((passant_coords, None))
-            self._move_no_checks(move)
+            self._move_no_checks(move, promote_type)
             # Check king safety and revert if needed
             king_coords = self._find_king_coords(origin_piece.color)
             if self._coords_under_threat(origin_piece.color, king_coords):
@@ -395,8 +414,8 @@ class Board:
                 return target
         return None
 
-    def _check_promotion(self, target: Coords) -> Union[Coords, None]:
-        piece = self._get_piece(target)
+    def _check_promotion(self, target: Coords, piece) -> Union[Coords, None]:
+        # TODO add origin too
         if isinstance(piece, Pawn):
             if (
                 piece.color == Colors.White and target.r == DIM_ZERO or
@@ -487,6 +506,13 @@ class Board:
         return threats, pinned_pieces
 
 
+    def _calc_threats(self, color: Colors):
+        pieces = self.pieces[color]
+        for piece_type in pieces:
+            coords_list = pieces[piece_type]
+            for coords in coords_list:
+                piece = self._get_piece(coords)
+                
 
 ########################### API START ###########################
 
@@ -526,6 +552,7 @@ class Board:
         except Exception as e:
             print(e)
 
+    # TODO remove this
     # @param piece_type: The piece type the user chooses
     # @return: A MoveReturn with the current board status.
     def promote_pawn(self, piece_type):
@@ -546,9 +573,8 @@ class Board:
 
     # @param origin: start coordinate of move
     # @param target: end coordinate
-    def move_piece(self, origin: Coords, target: Coords) -> MoveReturn:
-        if self.promotion_coords:
-            raise PromotionWaitException("choose promotion piece")
+    # @param promotion: type of promotion piece or None
+    def move_piece(self, origin, target, promotion) -> MoveReturn:
         if not on_board(origin) or not on_board(target):
             raise NotOnBoardException("coordinates not on board")
         if origin == target:
@@ -562,20 +588,25 @@ class Board:
         target_piece = self._get_piece(target)
         if target_piece and target_piece.color == origin_piece.color:
             raise SameColorException("same color")
+        
+        if self._check_promotion(target, origin_piece):
+            if promotion not in PROMOTE:
+                raise MissingPromotionChoice("retry move with promotion choice")
+
         self._update_moves(origin)
         do_en_passant = self._check_en_passant(origin, target)
-        if target in origin_piece.moves or do_en_passant:
+        if (any(target in move for move in origin_piece.moves)) or do_en_passant:
             if do_en_passant:
-                self._perform_move(origin, target, self.passant_pawn)
+                self._perform_move(origin, (target, promotion), passant_coords=self.passant_pawn)
             else:
-                self._perform_move(origin, target)
+                self._perform_move(origin, (target, promotion))
             # If pawn double-traveled en passant may be possible next move
             self.passant_pawn = self._pawn_two_squares(origin, target)
             self.white_turn = not self.white_turn
-            self.promotion_coords = self._check_promotion(target)
+            target_piece = self._get_piece(target)
+            self.promotion_coords = self._check_promotion(target, target_piece)
             game_status = self.update_status(origin_piece.color)
-            return MoveReturn(status=game_status,
-                              promotion=self.promotion_coords)
+            return game_status
         else:
             raise IllegalMoveException(f"illegal move {origin, target}")
 
@@ -601,26 +632,28 @@ def text_to_coords(coords_str):
     return Coords(r, c)
 
 
-def console_promote(board, file_moves):
-    char_to_promote_piece = {"Q": Queen, "R": Rook, "B": Bishop, "N": Knight}
+def console_promote(board, file_moves, origin, target):
     print(board)
     print("choose promotion piece (Q, R, B, N)")
     while True:
         try: 
             choice = file_moves.pop(0) if len(file_moves) > 0 else input()
+            if choice == "0":
+                return None
             if choice not in list("QRBN"):
                 raise ValueError("invalid choice try again")
-            board.promote_pawn(char_to_promote_piece[choice])
         except ValueError as e:
             print(e)
         else:
-            break
+            return CHAR_PROMOTE[choice]
 
+def text_to_promotion(s):
+    return None if s is None else CHAR_PROMOTE[s]
 
 if __name__=="__main__":
     board = Board()
     print(INTRO)    
-    print("move: 'e2 e4' revert: 'r' exit: '0'\n")
+    print("move: 'e2 e4' or 'a7 a8 Q' revert: 'r' exit: '0'\n")
     print(board)
 
     file_moves = []
@@ -642,15 +675,28 @@ if __name__=="__main__":
         if move_input == '0':
             break
         try:
-            start, end = move_input.split(" ")
-            move = board.move_piece(text_to_coords(start), text_to_coords(end))
-            if move.promotion:
-                console_promote(board, file_moves)
-            if (move.status == BoardStatus.Checkmate or
-                move.status == BoardStatus.Stalemate
-            ):
+            start, end, promote_choice = None, None, None
+            move_split = move_input.split(" ")
+            if len(move_split) == 2:
+                start, end = move_split
+            elif len(move_split) == 3:
+                start, end, promote_choice = move_split
+
+            origin = text_to_coords(start)
+            target = text_to_coords(end)
+            promotion = text_to_promotion(promote_choice)
+            move_return = board.move_piece(origin, target, promotion)
+            print(board)
+        except MissingPromotionChoice as e:
+            promotion = console_promote(board, file_moves, origin, target)
+            if promotion == None:
                 break
+            move_return = board.move_piece(origin, target, promotion)            
+            print(board)
         except ValueError as e:
             print(e)
         finally:
-            print(board)
+            if (move_return == BoardStatus.Checkmate or
+                move_return == BoardStatus.Stalemate
+            ):
+                break            

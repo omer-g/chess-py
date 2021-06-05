@@ -18,7 +18,7 @@
              ##############
              ##############
 
-move: 'e2 e4' revert: 'r' exit: '0'
+move: 'e2 e4' or 'a7 a8 Q' revert: 'r' exit: '0'
 
    a  b  c  d  e  f  g  h  
 8 |bR|bN|bB|bQ|bK|bB|bN|bR|
@@ -120,8 +120,8 @@ enter move
 
 enter move
    a  b  c  d  e  f  g  h  
-8 |bR|bN|bB|bQ|bK|bB|wP|bR|
-7 |  |bP|bP|bP|bP|  |  |  |
+8 |bR|bN|bB|bQ|bK|bB|bN|bR|
+7 |  |bP|bP|bP|bP|  |  |wP|
 6 |  |  |  |  |  |  |  |  |
 5 |bP|  |  |  |  |  |  |  |
 4 |  |  |  |  |  |  |  |  |
