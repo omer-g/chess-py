@@ -165,12 +165,12 @@ class BoardWindow(QtWidgets.QWidget):
             msg_layout.addWidget(button)
             msg.exec()
 
-    def call_promote(self, piece_type):
-        move_return = self.board.promote_pawn(piece_type)
+    def call_promote(self, origin, target, piece_type):
+        game_status = self.board.move_piece(origin, target, piece_type)
         self.set_pieces(self.board.get_state())
-        self.handle_game_status(move_return.status)
+        self.handle_game_status(game_status)
 
-    def promote_dialog(self):
+    def promote_dialog(self, origin, target):
         promote_pieces = {
             Knight: "Knight",
             Bishop: "Bishop",
@@ -189,7 +189,7 @@ class BoardWindow(QtWidgets.QWidget):
             button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT};}}")
             button.isFlat = True
 
-            button.clicked.connect(partial(self.call_promote, piece_type))
+            button.clicked.connect(partial(self.call_promote, origin, target, piece_type))
             button.clicked.connect(dialog.close)
             dialog_layout.addWidget(button)
         dialog.exec()
@@ -252,17 +252,17 @@ class BoardWindow(QtWidgets.QWidget):
                     self.piece_lifted = False
                     origin = self.square_to_board_coords(self.origin_square)
                     target = self.square_to_board_coords(square)
-                    move_return = self.board.move_piece(origin, target)
+                    game_status = self.board.move_piece(origin, target, promotion=None)
+                except MissingPromotionChoice as e:
+                    # TODO here pass origin, target
+                    self.promote_dialog(origin, target)
                 except Exception as e:
                     print(e)
                     self.origin_square = None
                 else:
                     self.set_pieces(self.board.get_state())
-                    if move_return.promotion:
-                        self.promote_dialog()
-                    else:
-                        # This is also called after promotion
-                        self.handle_game_status(move_return.status)
+                    # This is also called after promotion
+                    self.handle_game_status(game_status)
         else:
             print("game is over")        
 

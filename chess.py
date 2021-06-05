@@ -119,21 +119,21 @@ class Board:
         threatens = set()       # Squares threatened by piece
         for direction in directions:
             for i in range(1, DIM):
-                coords = Coords(coords[0] + direction[0] * i,
+                new_coords = Coords(coords[0] + direction[0] * i,
                                     coords[1] + direction[1] * i)               
-                if not on_board(coords):
+                if not on_board(new_coords):
                     break         
                 # Check if not empty
-                piece = self._get_piece(coords)
+                piece = self._get_piece(new_coords)
                 if piece:
                     # Check if there's piece that can be eaten
-                    if self._eatable(coords, color):
-                        moves.add((coords, None))
-                    threatens.add(coords)
+                    if self._eatable(new_coords, color):
+                        moves.add((new_coords, None))
+                    threatens.add(new_coords)
                     break
                 else:
-                    moves.add((coords, None))
-                    threatens.add(coords)
+                    moves.add((new_coords, None))
+                    threatens.add(new_coords)
         return moves, threatens
 
     def final_row(self, row, color: Colors):
