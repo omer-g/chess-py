@@ -7,7 +7,7 @@ A chess game written in Python
 
 ## Run GUI
 ```python chessgui.py```
-## Run Console
+## Run Terminal
 ```python chess.py```
 ##
 ![screenshot](https://github.com/omer-g/chess-py/blob/master/other/screenshot.jpg)

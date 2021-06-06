@@ -1,4 +1,4 @@
-from chess import *
+from chesslogic import *
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
@@ -254,7 +254,6 @@ class BoardWindow(QtWidgets.QWidget):
                     target = self.square_to_board_coords(square)
                     game_status = self.board.move_piece(origin, target, promotion=None)
                 except MissingPromotionChoice as e:
-                    # TODO here pass origin, target
                     self.promote_dialog(origin, target)
                 except Exception as e:
                     print(e)
