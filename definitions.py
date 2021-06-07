@@ -150,3 +150,4 @@ if __name__=="__main__":
     print(Record(Coords(1,2), Pawn(Colors.Black)))
     print(Record(Coords(1,2), None))
     print(CHAR_PROMOTE)
+    

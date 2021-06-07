@@ -1,3 +1,4 @@
+from chessai import RandomPlayer
 from chesslogic import *
 import random
 import argparse
@@ -40,50 +41,67 @@ def ask_promote(board, file_moves):
             return CHAR_PROMOTE[choice]
 
 
+def end_game(game_status):
+    return (game_status == BoardStatus.Checkmate or
+        game_status == BoardStatus.Stalemate
+    )
+
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--test", help="path to test file")
     parser.add_argument("-ai", "--ai", help="play against AI: r - random")
-    # TODO add argument to choose color
-    args = parser.parse_args()
+    parser.add_argument("-c", "--color",
+                        help="color of human player: b - black, w - white"
+    )
 
-    board = Board()
     print(INTRO)
     print("move: 'e2 e4' or 'a7 a8 Q' revert: 'r' exit: '0'")
-    print("help: 'python chess.py -h'\n")
+    print("help: 'python chess.py -h'")
+    args = parser.parse_args()
+    
+    board = Board()
     print(board)
 
-    file_moves = []
+    computer_turn = False
+    ai_player = None
+    if args.ai == "r":
+        # TODO change to composition 
+        ai_player = RandomPlayer(board, False)
+        # if args.color == "b":
+        #     computer_turn = True
+
+
+    moves_input = []
     if args.test:
         with open(args.test) as f:
             for line in f:
                 print(line)
-                file_moves.append(line.strip())
+                moves_input.append(line.strip())
     
-    ai_enabled = False
-    if args.ai == "r":
-        ai_enabled = True
-    
-    # TODO remove this - take turn only from board itself
-    white_turn = True
-    computer_turn = False
     # TODO refactor this 
     while True:
-        if computer_turn == white_turn and ai_enabled:
-            moves = board.generate_moves()
-            move = random.choice(moves)
-            # move = minmax(depth = 5)
-            board.move_piece(move[0], move[1], move[2])
-            print("computer's move")
-            print(board)
-            white_turn = not white_turn
+        if ai_player and ai_player.is_white == board.white_turn:
+            # TODO change so AI plays and returns status and move
+            move = ai_player.get_ai_move()
+            try:
+                origin, target, promotion = move
+                game_status = board.move_piece(origin, target, promotion)
+                print("computer's move")
+                print(board)
+                if end_game(game_status):
+                    break
+            except Exception as e:
+                print(e)
+                continue
         else:
             print("enter move")
-            move_input = file_moves.pop(0) if len(file_moves) > 0 else input()
+            move_input = moves_input.pop(0) if len(moves_input) > 0 else input()
             if move_input == 'r':
                 try:
                     board.revert_last_move()
-                    if ai_enabled:
+                    #  TODO differnetiate if black or white
+                    if ai_player:
                         board.revert_last_move()
                 except Exception as e:
                     print(e)
@@ -103,24 +121,17 @@ if __name__=="__main__":
                 origin = text_to_coords(start)
                 target = text_to_coords(end)
                 promotion = text_to_promotion(promote_choice)
-                move_return = board.move_piece(origin, target, promotion)
+                game_status = board.move_piece(origin, target, promotion)
                 print(board)
-                if (move_return == BoardStatus.Checkmate or
-                    move_return == BoardStatus.Stalemate
-                ):
-                    break            
-                white_turn = not white_turn
+                if end_game(game_status):
+                    break
             except MissingPromotionChoice as e:
-                promotion = ask_promote(board, file_moves)
+                promotion = ask_promote(board, moves_input)
                 if promotion == None:
                     break
-                move_return = board.move_piece(origin, target, promotion)            
+                game_status = board.move_piece(origin, target, promotion)           
                 print(board)
-                if (move_return == BoardStatus.Checkmate or
-                    move_return == BoardStatus.Stalemate
-                ):
-                    break              
-                white_turn = not white_turn
-
+                if end_game(game_status):
+                    break         
             except ValueError as e:
                 print(e)

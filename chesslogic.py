@@ -3,8 +3,7 @@ from definitions import *
 from exceptions import *
 from functools import partial
 from collections import deque
-import sys
-import random
+
 
 # Search "API START" for interface functions
 
@@ -19,6 +18,7 @@ class Board:
         self.passant_pawn = None
         self.moves_record = deque()
         self.game_status = BoardStatus.Normal
+        self.moves_counter = 0
 
         # Store coordinates for each piece type 
         self.white_pieces = dict((piece, set()) for piece in self.piece_types)
@@ -548,6 +548,7 @@ class Board:
         try:
             self._revert()
             self.white_turn = not self.white_turn
+            self.moves_counter -= 1
         except Exception as e:
             print(e)
 
@@ -584,6 +585,7 @@ class Board:
             self.white_turn = not self.white_turn
             target_piece = self._get_piece(target)
             game_status = self.update_status(origin_piece.color)
+            self.moves_counter += 1
             return game_status
         else:
             raise IllegalMoveException(f"illegal move {origin, target}")
