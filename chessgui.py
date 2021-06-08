@@ -1,4 +1,5 @@
 from chesslogic import *
+from chessai import *
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
@@ -26,6 +27,26 @@ COLOR_PNG = {
         Colors.Black: "b_",
         Colors.White: "w_"
 }
+
+class BoardDialog(QtWidgets.QDialog):
+    def __init__(self, parent,
+            layout=QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.TopToBottom)
+    ):
+        super().__init__(parent)
+        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+        self.layout = layout
+        self.setStyleSheet(f"QDialog {{background-color: {BG};}}")
+        self.setLayout(self.layout)
+
+    def add_button(self, text, connect_funcs=None):  
+        button = QtWidgets.QPushButton(text, self)
+        button.setStyleSheet("QPushButton {border: none};")
+        button.setStyleSheet(f"QPushButton {{background-color: {BRIGHT};}}")
+        button.isFlat = True
+        self.layout.addWidget(button)
+        if connect_funcs:
+            for func in connect_funcs:
+                button.clicked.connect(func)
 
 
 class BoardPiece(QtWidgets.QLabel):
@@ -83,10 +104,13 @@ class BoardWindow(QtWidgets.QWidget):
         # Lock the board if game is stalemate or mate
         self.locked = False
 
-        # Marks if a piece is lifted and if so saves its square.
+        # Marks if a piece is lifted and if so saves its coords.
         self.piece_lifted = False
         self.origin_square = None
         self.white_perspective = white_perspective
+        
+        self.computer_player = None
+        self.computer_turn = False
 
         window_layout = QtWidgets.QGridLayout()
         self.setLayout(window_layout)
@@ -121,6 +145,31 @@ class BoardWindow(QtWidgets.QWidget):
 
         # Used to move window by dragging
         self.offset = None
+
+        # TODO add color choice 
+        self.intro_dialog = BoardDialog(self)
+        self.intro_dialog.add_button("Human", [self.intro_dialog.close])
+        self.intro_dialog.add_button("Computer", [self.set_ai, self.intro_dialog.close])
+        self.intro_dialog.exec()
+
+    # TODO pass also color choice
+    def set_ai(self):
+        self.computer_player = RandomPlayer(self.board)
+
+    def play_ai_move(self):
+        # TODO change so player's class performs move (no while)
+        while True and not self.locked:
+            try:
+                move = self.computer_player.get_ai_move()
+                origin, target, promotion = move
+                game_status = self.board.move_piece(origin, target, promotion)
+            except Exception as e:
+                continue
+            else:
+                self.handle_game_status(game_status)
+                self.set_pieces(self.board.get_state())
+                self.computer_turn = False
+                break
 
     # @param coords: a tuple of gui board coordinates
     # @return: coordinates on logic board as Coords.
@@ -244,26 +293,30 @@ class BoardWindow(QtWidgets.QWidget):
 
     # @param square: a square that was double clicked    
     def handleDoubleClick(self, square):
-        if not self.locked:
-            if square.piece and not self.piece_lifted:
-                self.lift_piece(square)
-            elif self.piece_lifted:
-                try:
-                    self.piece_lifted = False
-                    origin = self.square_to_board_coords(self.origin_square)
-                    target = self.square_to_board_coords(square)
-                    game_status = self.board.move_piece(origin, target, promotion=None)
-                except MissingPromotionChoice as e:
-                    self.promote_dialog(origin, target)
-                except Exception as e:
-                    print(e)
-                    self.origin_square = None
-                else:
-                    self.set_pieces(self.board.get_state())
-                    # This is also called after promotion
-                    self.handle_game_status(game_status)
-        else:
-            print("game is over")        
+        if not self.computer_turn:
+            if not self.locked:
+                if square.piece and not self.piece_lifted:
+                    self.lift_piece(square)
+                elif self.piece_lifted:
+                    try:
+                        self.piece_lifted = False
+                        origin = self.square_to_board_coords(self.origin_square)
+                        target = self.square_to_board_coords(square)
+                        game_status = self.board.move_piece(origin, target, promotion=None)
+                    except MissingPromotionChoice as e:
+                        self.promote_dialog(origin, target)
+                    except Exception as e:
+                        print(e)
+                        self.origin_square = None
+                    else:                    
+                        self.set_pieces(self.board.get_state())
+                        # This is also called after promotion
+                        self.handle_game_status(game_status)
+                        if self.computer_player:
+                            self.computer_turn = True
+                            self.play_ai_move()
+            else:
+                print("game is over")
 
 
 if __name__=="__main__":

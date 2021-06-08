@@ -17,7 +17,7 @@ class BaseAI:
 
 # Plays moves randomly
 class RandomPlayer(BaseAI):
-    def __init__(self, board, is_white):
+    def __init__(self, board, is_white=False):
         super().__init__(board, is_white, "random player")
 
     def get_ai_move(self):
