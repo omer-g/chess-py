@@ -1,4 +1,4 @@
-from chessai import RandomPlayer
+from chessai import MinMaxPlayer, RandomPlayer, material_heuristic
 from chesslogic import *
 import random
 import argparse
@@ -50,7 +50,12 @@ def end_game(game_status):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--test", help="path to test file")
-    parser.add_argument("-ai", "--ai", help="play against AI: r - random")
+    parser.add_argument("-ai", "--ai", help="play against AI: r - random"
+                        "m - minmax"                    
+    )
+    parser.add_argument("-d", "--depth", default=1, help="depth for recursive"
+                        "algorithms should be 1 or more (default 1)"
+    )
     parser.add_argument("-c", "--color",
                         help="color of human player: b - black, w - white"
     )
@@ -61,16 +66,18 @@ if __name__=="__main__":
     args = parser.parse_args()
     
     board = Board()
-    print(board)
-
-    computer_turn = False
+    computer_turn = False if board.white_turn else True
     ai_player = None
-    if args.ai == "r":
-        # TODO change to composition 
+    if args.ai:
+        if args.color == "b" or args.color == "black":
+            # TODO rewrite this to go according to current state
+            computer_turn = True if board.white_turn else False
+    if args.ai == "r" or args.ai == "random":
         ai_player = RandomPlayer(board, False)
-        # if args.color == "b":
-        #     computer_turn = True
-
+    if args.ai == "m" or args.ai == "minmax":
+        # TODO here add choice of heuristic as well
+        ai_player = MinMaxPlayer(board, computer_turn, material_heuristic,
+                                 depth = args.depth)
 
     moves_input = []
     if args.test:
@@ -79,7 +86,9 @@ if __name__=="__main__":
                 print(line)
                 moves_input.append(line.strip())
     
-    # TODO refactor this 
+    # TODO refactor this
+
+    print(board) 
     while True:
         if ai_player and ai_player.is_white == board.white_turn:
             # TODO change so AI plays and returns status and move
@@ -117,7 +126,10 @@ if __name__=="__main__":
                     start, end = move_split
                 elif len(move_split) == 3:
                     start, end, promote_choice = move_split
-
+                else:
+                    # TODO return this for any invalid input
+                    print("invalid move. try again.")
+                    continue
                 origin = text_to_coords(start)
                 target = text_to_coords(end)
                 promotion = text_to_promotion(promote_choice)
