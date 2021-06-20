@@ -77,7 +77,7 @@ if __name__=="__main__":
     if args.ai == "m" or args.ai == "minmax":
         # TODO here add choice of heuristic as well
         ai_player = MinMaxPlayer(board, computer_turn, material_heuristic,
-                                 depth = args.depth)
+                                 depth = int(args.depth))
 
     moves_input = []
     if args.test:

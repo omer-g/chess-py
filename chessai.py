@@ -30,6 +30,7 @@ class MinMaxPlayer(BaseAI):
     def __init__(self, board, is_white, heuristic, depth = 1):
         super().__init__(board, is_white, "minmax player")
         self.heuristic = heuristic
+        self.depth = depth
         print("initialize minmax player\ndepth:", depth)
     
     def _min_max_rec(self, maximize, depth, root_white):
@@ -59,6 +60,7 @@ class MinMaxPlayer(BaseAI):
     # @param maximize: maximize on AI turn, minimize opponent turn
     # @param depth: depth of recursion. at least 1.
     def _min_max(self, depth):
+        print("debug:", depth)
         maximize = True
         moves = self.board.generate_moves()
         best_move = None
@@ -83,7 +85,7 @@ class MinMaxPlayer(BaseAI):
         return best_move
 
     def get_ai_move(self):
-        return self._min_max(1)
+        return self._min_max(self.depth)
 
 
 class NegaMax(BaseAI):
