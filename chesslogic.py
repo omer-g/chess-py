@@ -525,13 +525,11 @@ class Board:
         if self._coords_under_threat(opponent_color, opponent_king):
             self.game_status = BoardStatus.Check
             if self._check_mate(opponent_color):
-                print("checkmate")
                 self.game_status = BoardStatus.Checkmate
             else:
-                print("check")
+                self.game_status = BoardStatus.Check
         elif not self._legal_move_exists(opponent_color):
             self.game_status = BoardStatus.Stalemate
-            print("stalemate")
         return self.game_status
 
     # @return: Board with (color, piece-type) tuples or (None, None)

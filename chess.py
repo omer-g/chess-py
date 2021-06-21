@@ -1,3 +1,4 @@
+from io import BufferedRandom, BufferedReader
 from chessai import MinMaxPlayer, RandomPlayer, material_heuristic
 from chesslogic import *
 import random
@@ -42,6 +43,12 @@ def ask_promote(board, file_moves):
 
 
 def end_game(game_status):
+    if game_status == BoardStatus.Check:
+        print("check")
+    if game_status == BoardStatus.Checkmate:
+        print("checkmate")
+    elif game_status == BoardStatus.Stalemate:
+        print("stalemate")
     return (game_status == BoardStatus.Checkmate or
         game_status == BoardStatus.Stalemate
     )
@@ -96,7 +103,6 @@ if __name__=="__main__":
             try:
                 origin, target, promotion = move
                 game_status = board.move_piece(origin, target, promotion)
-                print("computer's move")
                 print(board)
                 if end_game(game_status):
                     break

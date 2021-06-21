@@ -44,11 +44,23 @@ class MinMaxPlayer(BaseAI):
             for move in moves:
                 origin, target, promotion = move
                 try:
-                    self.board.move_piece(origin, target, promotion)
+                    game_status = self.board.move_piece(origin, target, promotion)
                 except:
                     # TODO could pop illegal moves
                     # TODO handle case where no moves
                     continue
+                if game_status == BoardStatus.Checkmate:
+                    self.board.revert_last_move()
+                    if maximize:
+                        # AI wants to avoid being checkmated
+                        return -math.inf
+                    else:
+                        # AI wants to checkmate
+                        return math.inf
+                if game_status == BoardStatus.Stalemate:
+                    self.board.revert_last_move()
+                    return 0
+
                 score = self._min_max_rec(not maximize, depth - 1, root_white)
                 if ((maximize and score > best_score) or
                     (not maximize and score < best_score)
@@ -60,7 +72,6 @@ class MinMaxPlayer(BaseAI):
     # @param maximize: maximize on AI turn, minimize opponent turn
     # @param depth: depth of recursion. at least 1.
     def _min_max(self, depth):
-        print("debug:", depth)
         maximize = True
         moves = self.board.generate_moves()
         best_move = None
@@ -85,6 +96,7 @@ class MinMaxPlayer(BaseAI):
         return best_move
 
     def get_ai_move(self):
+        print("calculating move...")
         return self._min_max(self.depth)
 
 
